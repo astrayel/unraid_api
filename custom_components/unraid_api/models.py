@@ -95,3 +95,43 @@ class Array:
     capacity_free: int
     capacity_used: int
     capacity_total: int
+
+
+class VmState(StrEnum):  # noqa: D101
+    RUNNING = "RUNNING"
+    STOPPED = "STOPPED"
+    PAUSED = "PAUSED"
+    PMSUSPENDED = "PMSUSPENDED"
+    SHUTTING_DOWN = "SHUTTING_DOWN"
+    SHUTDOWN = "SHUTDOWN"
+    CRASHED = "CRASHED"
+
+
+class DockerState(StrEnum):  # noqa: D101
+    RUNNING = "RUNNING"
+    STOPPED = "STOPPED"
+    PAUSED = "PAUSED"
+    RESTARTING = "RESTARTING"
+    CREATED = "CREATED"
+    EXITED = "EXITED"
+    DEAD = "DEAD"
+
+
+@dataclass
+class VirtualMachine:
+    """Virtual Machine."""
+
+    id: str
+    name: str
+    state: VmState
+
+
+@dataclass
+class DockerContainer:
+    """Docker Container."""
+
+    id: str
+    name: str
+    state: DockerState
+    image: str
+    autostart: bool

@@ -10,9 +10,13 @@ from custom_components.unraid_api.models import (
     Disk,
     DiskStatus,
     DiskType,
+    DockerContainer,
+    DockerState,
     Metrics,
     ServerInfo,
     Share,
+    VirtualMachine,
+    VmState,
 )
 
 from . import UnraidApiClient
@@ -117,6 +121,86 @@ class UnraidApiV420(UnraidApiClient):
             capacity_total=response.array.capacity.kilobytes.total,
         )
 
+    async def query_vms(self) -> list[VirtualMachine]:
+        response = await self.call_api(VMS_QUERY, VmsQuery)
+        return [
+            VirtualMachine(
+                id=vm.id,
+                name=vm.name,
+                state=vm.state,
+            )
+            for vm in response.vms.domain
+        ]
+
+    async def query_docker_containers(self) -> list[DockerContainer]:
+        response = await self.call_api(DOCKER_QUERY, DockerQuery)
+        return [
+            DockerContainer(
+                id=container.id,
+                name=container.names[0].lstrip("/") if container.names else container.id,
+                state=container.state,
+                image=container.image,
+                autostart=container.auto_start,
+            )
+            for container in response.docker.containers
+        ]
+
+    async def vm_start(self, vm_id: str) -> bool:
+        """Start a VM."""
+        response = await self.call_api(
+            VM_START_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.start is not None
+
+    async def vm_stop(self, vm_id: str) -> bool:
+        """Stop a VM."""
+        response = await self.call_api(
+            VM_STOP_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.stop is not None
+
+    async def vm_reboot(self, vm_id: str) -> bool:
+        """Reboot a VM."""
+        response = await self.call_api(
+            VM_REBOOT_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.reboot is not None
+
+    async def vm_pause(self, vm_id: str) -> bool:
+        """Pause a VM."""
+        response = await self.call_api(
+            VM_PAUSE_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.pause is not None
+
+    async def vm_resume(self, vm_id: str) -> bool:
+        """Resume a VM."""
+        response = await self.call_api(
+            VM_RESUME_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.resume is not None
+
+    async def vm_force_stop(self, vm_id: str) -> bool:
+        """Force stop a VM."""
+        response = await self.call_api(
+            VM_FORCE_STOP_MUTATION, VmActionResponse, variables={"id": vm_id}
+        )
+        return response.vm.force_stop is not None
+
+    async def docker_start(self, container_id: str) -> bool:
+        """Start a Docker container."""
+        response = await self.call_api(
+            DOCKER_START_MUTATION, DockerActionResponse, variables={"id": container_id}
+        )
+        return response.docker.start is not None
+
+    async def docker_stop(self, container_id: str) -> bool:
+        """Stop a Docker container."""
+        response = await self.call_api(
+            DOCKER_STOP_MUTATION, DockerActionResponse, variables={"id": container_id}
+        )
+        return response.docker.stop is not None
+
 
 ## Queries
 
@@ -218,6 +302,120 @@ query Array {
   }
 }
 
+"""
+
+VMS_QUERY = """
+query VMs {
+  vms {
+    domain {
+      id
+      name
+      state
+    }
+  }
+}
+"""
+
+DOCKER_QUERY = """
+query Docker {
+  docker {
+    containers {
+      id
+      names
+      state
+      image
+      autoStart
+    }
+  }
+}
+"""
+
+VM_START_MUTATION = """
+mutation StartVM($id: PrefixedID!) {
+  vm {
+    start(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+VM_STOP_MUTATION = """
+mutation StopVM($id: PrefixedID!) {
+  vm {
+    stop(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+VM_REBOOT_MUTATION = """
+mutation RebootVM($id: PrefixedID!) {
+  vm {
+    reboot(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+VM_PAUSE_MUTATION = """
+mutation PauseVM($id: PrefixedID!) {
+  vm {
+    pause(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+VM_RESUME_MUTATION = """
+mutation ResumeVM($id: PrefixedID!) {
+  vm {
+    resume(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+VM_FORCE_STOP_MUTATION = """
+mutation ForceStopVM($id: PrefixedID!) {
+  vm {
+    forceStop(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+DOCKER_START_MUTATION = """
+mutation StartContainer($id: PrefixedID!) {
+  docker {
+    start(id: $id) {
+      id
+      state
+    }
+  }
+}
+"""
+
+DOCKER_STOP_MUTATION = """
+mutation StopContainer($id: PrefixedID!) {
+  docker {
+    stop(id: $id) {
+      id
+      state
+    }
+  }
+}
 """
 
 ## Api Models
@@ -326,3 +524,67 @@ class ArrayCapacityKilobytes(BaseModel):  # noqa: D101
     free: int
     used: int
     total: int
+
+
+### VMs
+class VmsQuery(BaseModel):  # noqa: D101
+    vms: _VmsRoot
+
+
+class _VmsRoot(BaseModel):
+    domain: list[_VM]
+
+
+class _VM(BaseModel):
+    id: str
+    name: str
+    state: VmState
+
+
+class _VmActionResult(BaseModel):  # noqa: D101
+    id: str
+    state: VmState
+
+
+class _VmMutations(BaseModel):  # noqa: D101
+    start: _VmActionResult | None = None
+    stop: _VmActionResult | None = None
+    reboot: _VmActionResult | None = None
+    pause: _VmActionResult | None = None
+    resume: _VmActionResult | None = None
+    force_stop: _VmActionResult | None = Field(alias="forceStop", default=None)
+
+
+class VmActionResponse(BaseModel):  # noqa: D101
+    vm: _VmMutations
+
+
+### Docker
+class DockerQuery(BaseModel):  # noqa: D101
+    docker: _DockerRoot
+
+
+class _DockerRoot(BaseModel):
+    containers: list[_Container]
+
+
+class _Container(BaseModel):
+    id: str
+    names: list[str]
+    state: DockerState
+    image: str
+    auto_start: bool = Field(alias="autoStart")
+
+
+class _DockerActionResult(BaseModel):  # noqa: D101
+    id: str
+    state: DockerState
+
+
+class _DockerMutations(BaseModel):  # noqa: D101
+    start: _DockerActionResult | None = None
+    stop: _DockerActionResult | None = None
+
+
+class DockerActionResponse(BaseModel):  # noqa: D101
+    docker: _DockerMutations
