@@ -166,24 +166,40 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
 
     async def _update_vms(self, data: UnraidServerData) -> None:
         vms = {}
-        query_response = await self.api_client.query_vms()
+        try:
+            query_response = await self.api_client.query_vms()
 
-        for vm in query_response:
-            vms[vm.id] = vm
-            if vm.id not in self.known_vms:
-                self.known_vms.add(vm.id)
-                self._do_callback(self.vm_callbacks, vm)
+            for vm in query_response:
+                vms[vm.id] = vm
+                if vm.id not in self.known_vms:
+                    self.known_vms.add(vm.id)
+                    self._do_callback(self.vm_callbacks, vm)
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "VMs are not available on this Unraid server: %s. VM monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating VMs: %s", exc)
         data["vms"] = vms
 
     async def _update_docker(self, data: UnraidServerData) -> None:
         docker = {}
-        query_response = await self.api_client.query_docker_containers()
+        try:
+            query_response = await self.api_client.query_docker_containers()
 
-        for container in query_response:
-            docker[container.id] = container
-            if container.id not in self.known_docker:
-                self.known_docker.add(container.id)
-                self._do_callback(self.docker_callbacks, container)
+            for container in query_response:
+                docker[container.id] = container
+                if container.id not in self.known_docker:
+                    self.known_docker.add(container.id)
+                    self._do_callback(self.docker_callbacks, container)
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "Docker is not available on this Unraid server: %s. Docker monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating Docker: %s", exc)
         data["docker"] = docker
 
     def subscribe_disks(self, callback: Callable[[Disk], None]) -> None:
