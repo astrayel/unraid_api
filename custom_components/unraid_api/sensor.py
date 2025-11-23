@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     CONF_DOCKER,
     CONF_DRIVES,
+    CONF_FLASH,
     CONF_LICENSE,
     CONF_PARITY,
     CONF_SHARES,
@@ -30,6 +31,7 @@ from .models import (
     DiskType,
     DockerContainer,
     DockerState,
+    Flash,
     ParityCheck,
     ParityCheckStatus,
     Registration,
@@ -574,6 +576,31 @@ LICENSE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
     ),
 )
 
+FLASH_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
+    UnraidSensorEntityDescription(
+        key="flash_vendor",
+        value_fn=lambda coordinator: coordinator.data["flash"].vendor
+        if coordinator.data["flash"]
+        else None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="flash_product",
+        value_fn=lambda coordinator: coordinator.data["flash"].product
+        if coordinator.data["flash"]
+        else None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="flash_guid",
+        value_fn=lambda coordinator: coordinator.data["flash"].guid
+        if coordinator.data["flash"]
+        else None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
@@ -607,6 +634,12 @@ async def async_setup_entry(
     if config_entry.options.get(CONF_LICENSE, True):
         entities.extend(
             UnraidSensor(description, config_entry) for description in LICENSE_SENSOR_DESCRIPTIONS
+        )
+
+    # Add flash drive sensors if flash monitoring is enabled
+    if config_entry.options.get(CONF_FLASH, True):
+        entities.extend(
+            UnraidSensor(description, config_entry) for description in FLASH_SENSOR_DESCRIPTIONS
         )
 
     async_add_entites(entities)

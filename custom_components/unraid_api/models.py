@@ -239,3 +239,13 @@ class Registration:
     state: RegistrationState
     expiration: str | None  # Date string
     update_expiration: str | None  # Date string
+
+
+@dataclass
+class Flash:
+    """USB Flash Drive."""
+
+    id: str
+    guid: str
+    vendor: str
+    product: str

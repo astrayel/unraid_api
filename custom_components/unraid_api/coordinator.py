@@ -16,6 +16,7 @@ from .api import IncompatibleApiError, UnraidAuthError, UnraidGraphQLError
 from .const import (
     CONF_DOCKER,
     CONF_DRIVES,
+    CONF_FLASH,
     CONF_LICENSE,
     CONF_PARITY,
     CONF_SHARES,
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
         Array,
         Disk,
         DockerContainer,
+        Flash,
         Metrics,
         ParityCheck,
         Registration,
@@ -56,6 +58,7 @@ class UnraidServerData(TypedDict):  # noqa: D101
     parity: ParityCheck | None
     ups_devices: dict[str, UPSDevice]
     registration: Registration | None
+    flash: Flash | None
 
 
 class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
@@ -112,6 +115,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     tg.create_task(self._update_ups_devices(data))
                 if self.config_entry.options.get(CONF_LICENSE, True):
                     tg.create_task(self._update_registration(data))
+                if self.config_entry.options.get(CONF_FLASH, True):
+                    tg.create_task(self._update_flash(data))
 
         except* ClientConnectorSSLError as exc:
             _LOGGER.debug("Update: SSL error: %s", str(exc))
@@ -277,6 +282,19 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         except Exception as exc:
             _LOGGER.error("Unexpected error while updating registration: %s", exc)
         data["registration"] = registration
+
+    async def _update_flash(self, data: UnraidServerData) -> None:
+        flash = None
+        try:
+            flash = await self.api_client.query_flash()
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "Flash drive information is not available on this Unraid server: %s. Flash monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating flash drive: %s", exc)
+        data["flash"] = flash
 
     def subscribe_disks(self, callback: Callable[[Disk], None]) -> None:
         self.disk_callbacks.add(callback)

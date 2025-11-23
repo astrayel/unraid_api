@@ -14,6 +14,7 @@ from custom_components.unraid_api.models import (
     DiskType,
     DockerContainer,
     DockerState,
+    Flash,
     Metrics,
     ParityCheck,
     ParityCheckStatus,
@@ -270,6 +271,16 @@ class UnraidApiV420(UnraidApiClient):
             state=RegistrationState(response.registration.state),
             expiration=response.registration.expiration,
             update_expiration=response.registration.update_expiration,
+        )
+
+    async def query_flash(self) -> Flash:
+        """Query USB flash drive information."""
+        response = await self.call_api(FLASH_QUERY, FlashQuery)
+        return Flash(
+            id=response.flash.id,
+            guid=response.flash.guid,
+            vendor=response.flash.vendor,
+            product=response.flash.product,
         )
 
 
@@ -566,6 +577,17 @@ query Registration {
 }
 """
 
+FLASH_QUERY = """
+query Flash {
+  flash {
+    id
+    guid
+    vendor
+    product
+  }
+}
+"""
+
 ## Api Models
 
 
@@ -804,3 +826,15 @@ class _Registration(BaseModel):  # noqa: D101
 
 class RegistrationQuery(BaseModel):  # noqa: D101
     registration: _Registration
+
+
+### Flash
+class _Flash(BaseModel):  # noqa: D101
+    id: str
+    guid: str
+    vendor: str
+    product: str
+
+
+class FlashQuery(BaseModel):  # noqa: D101
+    flash: _Flash

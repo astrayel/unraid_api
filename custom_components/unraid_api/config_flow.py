@@ -24,6 +24,7 @@ from .api import IncompatibleApiError, UnraidAuthError, UnraidGraphQLError, get_
 from .const import (
     CONF_DOCKER,
     CONF_DRIVES,
+    CONF_FLASH,
     CONF_LICENSE,
     CONF_PARITY,
     CONF_SHARES,
@@ -61,6 +62,7 @@ OPTIONS_SCHEMA = vol.Schema(
         vol.Required(CONF_PARITY, default=True): BooleanSelector(),
         vol.Required(CONF_UPS, default=True): BooleanSelector(),
         vol.Required(CONF_LICENSE, default=True): BooleanSelector(),
+        vol.Required(CONF_FLASH, default=True): BooleanSelector(),
     }
 )
 

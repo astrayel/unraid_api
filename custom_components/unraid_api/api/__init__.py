@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         Array,
         Disk,
         DockerContainer,
+        Flash,
         Metrics,
         ParityCheck,
         Registration,
@@ -186,6 +187,10 @@ class UnraidApiClient:
 
     @abstractmethod
     async def query_registration(self) -> Registration:
+        pass
+
+    @abstractmethod
+    async def query_flash(self) -> Flash:
         pass
 
 
