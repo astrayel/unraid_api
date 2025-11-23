@@ -135,3 +135,52 @@ class DockerContainer:
     state: DockerState
     image: str
     autostart: bool
+
+
+class ParityCheckStatus(StrEnum):  # noqa: D101
+    NEVER_RUN = "NEVER_RUN"
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+    FAILED = "FAILED"
+
+
+@dataclass
+class ParityCheck:
+    """Parity Check Status."""
+
+    status: ParityCheckStatus
+    progress: int | None  # 0-100
+    errors: int | None
+    speed: str | None  # Speed in MB/s
+    duration: int | None  # Duration in seconds
+    correcting: bool | None
+    running: bool
+    paused: bool
+
+
+class UPSStatus(StrEnum):  # noqa: D101
+    ONLINE = "ONLINE"
+    ON_BATTERY = "ON_BATTERY"
+    LOW_BATTERY = "LOW_BATTERY"
+    REPLACE_BATTERY = "REPLACE_BATTERY"
+    OVERLOAD = "OVERLOAD"
+    OFFLINE = "OFFLINE"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass
+class UPSDevice:
+    """UPS Device."""
+
+    id: str
+    name: str
+    model: str
+    status: str  # Can be various statuses, keeping as string
+    battery_level: int  # 0-100%
+    runtime: int  # seconds
+    battery_health: str  # "Good", "Replace", "Unknown"
+    input_voltage: float
+    output_voltage: float
+    load_percentage: int  # 0-100%

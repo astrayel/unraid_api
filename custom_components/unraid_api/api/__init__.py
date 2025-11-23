@@ -18,8 +18,10 @@ if TYPE_CHECKING:
         Disk,
         DockerContainer,
         Metrics,
+        ParityCheck,
         ServerInfo,
         Share,
+        UPSDevice,
         VirtualMachine,
     )
 
@@ -171,6 +173,14 @@ class UnraidApiClient:
 
     @abstractmethod
     async def docker_stop(self, container_id: str) -> bool:
+        pass
+
+    @abstractmethod
+    async def query_parity_check(self) -> ParityCheck:
+        pass
+
+    @abstractmethod
+    async def query_ups_devices(self) -> list[UPSDevice]:
         pass
 
 

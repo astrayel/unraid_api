@@ -13,8 +13,11 @@ from custom_components.unraid_api.models import (
     DockerContainer,
     DockerState,
     Metrics,
+    ParityCheck,
+    ParityCheckStatus,
     ServerInfo,
     Share,
+    UPSDevice,
     VirtualMachine,
     VmState,
 )
@@ -200,6 +203,40 @@ class UnraidApiV420(UnraidApiClient):
             DOCKER_STOP_MUTATION, DockerActionResponse, variables={"id": container_id}
         )
         return response.docker.stop is not None
+
+    async def query_parity_check(self) -> ParityCheck:
+        """Query parity check status."""
+        response = await self.call_api(PARITY_CHECK_QUERY, ParityCheckQuery)
+        pc = response.array.parity_check_status
+        return ParityCheck(
+            status=pc.status,
+            progress=pc.progress,
+            errors=pc.errors,
+            speed=pc.speed,
+            duration=pc.duration,
+            correcting=pc.correcting,
+            running=pc.running,
+            paused=pc.paused,
+        )
+
+    async def query_ups_devices(self) -> list[UPSDevice]:
+        """Query UPS devices."""
+        response = await self.call_api(UPS_QUERY, UPSQuery)
+        return [
+            UPSDevice(
+                id=device.id,
+                name=device.name,
+                model=device.model,
+                status=device.status,
+                battery_level=device.battery.charge_level,
+                runtime=device.battery.estimated_runtime,
+                battery_health=device.battery.health,
+                input_voltage=device.power.input_voltage,
+                output_voltage=device.power.output_voltage,
+                load_percentage=device.power.load_percentage,
+            )
+            for device in response.ups_devices
+        ]
 
 
 ## Queries
@@ -418,6 +455,44 @@ mutation StopContainer($id: PrefixedID!) {
 }
 """
 
+PARITY_CHECK_QUERY = """
+query ParityCheck {
+  array {
+    parityCheckStatus {
+      status
+      progress
+      errors
+      speed
+      duration
+      correcting
+      paused
+      running
+    }
+  }
+}
+"""
+
+UPS_QUERY = """
+query UPS {
+  upsDevices {
+    id
+    name
+    model
+    status
+    battery {
+      chargeLevel
+      estimatedRuntime
+      health
+    }
+    power {
+      inputVoltage
+      outputVoltage
+      loadPercentage
+    }
+  }
+}
+"""
+
 ## Api Models
 
 
@@ -588,3 +663,49 @@ class _DockerMutations(BaseModel):  # noqa: D101
 
 class DockerActionResponse(BaseModel):  # noqa: D101
     docker: _DockerMutations
+
+
+### Parity Check
+class _ParityCheckStatus(BaseModel):  # noqa: D101
+    status: ParityCheckStatus
+    progress: int | None = None
+    errors: int | None = None
+    speed: str | None = None
+    duration: int | None = None
+    correcting: bool | None = None
+    paused: bool
+    running: bool
+
+
+class _ArrayForParityCheck(BaseModel):  # noqa: D101
+    parity_check_status: _ParityCheckStatus = Field(alias="parityCheckStatus")
+
+
+class ParityCheckQuery(BaseModel):  # noqa: D101
+    array: _ArrayForParityCheck
+
+
+### UPS
+class _UPSBattery(BaseModel):  # noqa: D101
+    charge_level: int = Field(alias="chargeLevel")
+    estimated_runtime: int = Field(alias="estimatedRuntime")
+    health: str
+
+
+class _UPSPower(BaseModel):  # noqa: D101
+    input_voltage: float = Field(alias="inputVoltage")
+    output_voltage: float = Field(alias="outputVoltage")
+    load_percentage: int = Field(alias="loadPercentage")
+
+
+class _UPSDevice(BaseModel):  # noqa: D101
+    id: str
+    name: str
+    model: str
+    status: str
+    battery: _UPSBattery
+    power: _UPSPower
+
+
+class UPSQuery(BaseModel):  # noqa: D101
+    ups_devices: list[_UPSDevice] = Field(alias="upsDevices")

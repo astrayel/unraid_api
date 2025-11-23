@@ -14,7 +14,9 @@
                     "shares": "Monitor shares",
                     "drives": "Monitor disks",
                     "vms": "Monitor VMs",
-                    "docker": "Monitor Docker containers"
+                    "docker": "Monitor Docker containers",
+                    "parity": "Monitor parity checks",
+                    "ups": "Monitor UPS devices"
                 }
             },
             "reauth_key": {
@@ -28,7 +30,9 @@
                     "shares": "Monitor shares",
                     "drives": "Monitor disks",
                     "vms": "Monitor VMs",
-                    "docker": "Monitor Docker containers"
+                    "docker": "Monitor Docker containers",
+                    "parity": "Monitor parity checks",
+                    "ups": "Monitor UPS devices"
                 }
             }
         },
@@ -160,6 +164,50 @@
             },
             "docker_paused": {
                 "name": "Containers Paused"
+            },
+            "parity_check_status": {
+                "name": "Parity check status",
+                "state": {
+                    "never_run": "Never run",
+                    "running": "Running",
+                    "paused": "Paused",
+                    "completed": "Completed",
+                    "cancelled": "Cancelled",
+                    "failed": "Failed"
+                }
+            },
+            "parity_check_progress": {
+                "name": "Parity check progress"
+            },
+            "parity_check_errors": {
+                "name": "Parity check errors"
+            },
+            "ups_battery_level": {
+                "name": "{ups_name} Battery level"
+            },
+            "ups_runtime": {
+                "name": "{ups_name} Runtime"
+            },
+            "ups_status": {
+                "name": "{ups_name} Status",
+                "state": {
+                    "online": "Online",
+                    "on_battery": "On battery",
+                    "low_battery": "Low battery",
+                    "replace_battery": "Replace battery",
+                    "overload": "Overload",
+                    "offline": "Offline",
+                    "unknown": "Unknown"
+                }
+            },
+            "ups_load": {
+                "name": "{ups_name} Load"
+            },
+            "ups_input_voltage": {
+                "name": "{ups_name} Input voltage"
+            },
+            "ups_output_voltage": {
+                "name": "{ups_name} Output voltage"
             }
         },
         "binary_sensor": {
@@ -217,7 +265,9 @@
                     "shares": "Monitor shares",
                     "drives": "Monitor disks",
                     "vms": "Monitor VMs",
-                    "docker": "Monitor Docker containers"
+                    "docker": "Monitor Docker containers",
+                    "parity": "Monitor parity checks",
+                    "ups": "Monitor UPS devices"
                 }
             }
         }

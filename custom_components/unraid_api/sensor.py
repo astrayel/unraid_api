@@ -15,9 +15,20 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation, U
 from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DOCKER, CONF_DRIVES, CONF_SHARES, CONF_VMS
+from .const import CONF_DOCKER, CONF_DRIVES, CONF_PARITY, CONF_SHARES, CONF_UPS, CONF_VMS
 from .coordinator import UnraidDataUpdateCoordinator
-from .models import Disk, DiskType, DockerContainer, DockerState, Share, VirtualMachine, VmState
+from .models import (
+    Disk,
+    DiskType,
+    DockerContainer,
+    DockerState,
+    ParityCheck,
+    ParityCheckStatus,
+    Share,
+    UPSDevice,
+    VirtualMachine,
+    VmState,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -64,6 +75,13 @@ class UnraidDockerSensorEntityDescription(SensorEntityDescription, frozen_or_tha
 
     value_fn: Callable[[DockerContainer], StateType]
     extra_values_fn: Callable[[DockerContainer], dict[str, Any]] | None = None
+
+
+class UnraidUPSSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
+    """Description for Unraid UPS Sensor Entity."""
+
+    value_fn: Callable[[UPSDevice], StateType]
+    extra_values_fn: Callable[[UPSDevice], dict[str, Any]] | None = None
 
 
 def calc_array_usage_percentage(coordinator: UnraidDataUpdateCoordinator) -> StateType:
@@ -363,6 +381,110 @@ DOCKER_AGGREGATE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] 
     ),
 )
 
+PARITY_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
+    UnraidSensorEntityDescription(
+        key="parity_check_status",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda coordinator: coordinator.data["parity"].status.lower()
+        if coordinator.data["parity"]
+        else None,
+        options=[
+            "never_run",
+            "running",
+            "paused",
+            "completed",
+            "cancelled",
+            "failed",
+        ],
+    ),
+    UnraidSensorEntityDescription(
+        key="parity_check_progress",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda coordinator: coordinator.data["parity"].progress
+        if coordinator.data["parity"]
+        else None,
+        extra_values_fn=lambda coordinator: {
+            "errors": coordinator.data["parity"].errors,
+            "speed": coordinator.data["parity"].speed,
+            "duration": coordinator.data["parity"].duration,
+            "correcting": coordinator.data["parity"].correcting,
+        }
+        if coordinator.data["parity"]
+        else {},
+    ),
+    UnraidSensorEntityDescription(
+        key="parity_check_errors",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: coordinator.data["parity"].errors
+        if coordinator.data["parity"]
+        else None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
+UPS_SENSOR_DESCRIPTIONS: tuple[UnraidUPSSensorEntityDescription, ...] = (
+    UnraidUPSSensorEntityDescription(
+        key="ups_battery_level",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda ups: ups.battery_level,
+    ),
+    UnraidUPSSensorEntityDescription(
+        key="ups_runtime",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement="s",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda ups: ups.runtime,
+        extra_values_fn=lambda ups: {
+            "battery_health": ups.battery_health,
+        },
+    ),
+    UnraidUPSSensorEntityDescription(
+        key="ups_status",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda ups: ups.status.lower() if ups.status else "unknown",
+        options=[
+            "online",
+            "on_battery",
+            "low_battery",
+            "replace_battery",
+            "overload",
+            "offline",
+            "unknown",
+        ],
+    ),
+    UnraidUPSSensorEntityDescription(
+        key="ups_load",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda ups: ups.load_percentage,
+    ),
+    UnraidUPSSensorEntityDescription(
+        key="ups_input_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement="V",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda ups: ups.input_voltage,
+        entity_registry_enabled_default=False,
+    ),
+    UnraidUPSSensorEntityDescription(
+        key="ups_output_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement="V",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda ups: ups.output_voltage,
+        entity_registry_enabled_default=False,
+        extra_values_fn=lambda ups: {
+            "model": ups.model,
+        },
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
@@ -384,6 +506,12 @@ async def async_setup_entry(
         entities.extend(
             UnraidSensor(description, config_entry)
             for description in DOCKER_AGGREGATE_SENSOR_DESCRIPTIONS
+        )
+
+    # Add parity check sensors if parity monitoring is enabled
+    if config_entry.options.get(CONF_PARITY, True):
+        entities.extend(
+            UnraidSensor(description, config_entry) for description in PARITY_SENSOR_DESCRIPTIONS
         )
 
     async_add_entites(entities)
@@ -429,6 +557,15 @@ async def async_setup_entry(
         ]
         async_add_entites(entities)
 
+    @callback
+    def add_ups_callback(ups: UPSDevice) -> None:
+        _LOGGER.debug("Adding new UPS device: %s", ups.name)
+        entities = [
+            UnraidUPSSensor(description, config_entry, ups.id)
+            for description in UPS_SENSOR_DESCRIPTIONS
+        ]
+        async_add_entites(entities)
+
     if config_entry.options.get(CONF_DRIVES, True):
         config_entry.runtime_data.coordinator.subscribe_disks(add_disk_callback)
     if config_entry.options.get(CONF_SHARES, True):
@@ -437,6 +574,8 @@ async def async_setup_entry(
         config_entry.runtime_data.coordinator.subscribe_vms(add_vm_callback)
     if config_entry.options.get(CONF_DOCKER, False):
         config_entry.runtime_data.coordinator.subscribe_docker(add_docker_callback)
+    if config_entry.options.get(CONF_UPS, True):
+        config_entry.runtime_data.coordinator.subscribe_ups_devices(add_ups_callback)
 
 
 class UnraidSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorEntity):
@@ -640,6 +779,50 @@ class UnraidDockerSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorE
             if self.entity_description.extra_values_fn:
                 return self.entity_description.extra_values_fn(
                     self.coordinator.data["docker"][self.container_id]
+                )
+        except (KeyError, AttributeError):
+            return None
+        return None
+
+
+class UnraidUPSSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorEntity):
+    """Sensor for Unraid UPS devices."""
+
+    entity_description: UnraidUPSSensorEntityDescription
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        description: UnraidUPSSensorEntityDescription,
+        config_entry: UnraidConfigEntry,
+        ups_id: str,
+    ) -> None:
+        super().__init__(config_entry.runtime_data.coordinator)
+        self.ups_id = ups_id
+        self.entity_description = description
+        self._attr_unique_id = f"{config_entry.entry_id}-{description.key}-{self.ups_id}"
+        self._attr_translation_key = description.key
+        self._attr_translation_placeholders = {
+            "ups_name": self.coordinator.data["ups_devices"][self.ups_id].name
+        }
+        self._attr_available = False
+        self._attr_device_info = config_entry.runtime_data.device_info
+
+    @property
+    def native_value(self) -> StateType:
+        try:
+            return self.entity_description.value_fn(
+                self.coordinator.data["ups_devices"][self.ups_id]
+            )
+        except (KeyError, AttributeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        try:
+            if self.entity_description.extra_values_fn:
+                return self.entity_description.extra_values_fn(
+                    self.coordinator.data["ups_devices"][self.ups_id]
                 )
         except (KeyError, AttributeError):
             return None

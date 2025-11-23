@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from pydantic_core import ValidationError
 
 from .api import IncompatibleApiError, UnraidAuthError, UnraidGraphQLError
-from .const import CONF_DOCKER, CONF_DRIVES, CONF_SHARES, CONF_VMS, DOMAIN
+from .const import CONF_DOCKER, CONF_DRIVES, CONF_PARITY, CONF_SHARES, CONF_UPS, CONF_VMS, DOMAIN
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,7 +22,16 @@ if TYPE_CHECKING:
 
     from . import UnraidConfigEntry
     from .api import UnraidApiClient
-    from .models import Array, Disk, DockerContainer, Metrics, Share, VirtualMachine
+    from .models import (
+        Array,
+        Disk,
+        DockerContainer,
+        Metrics,
+        ParityCheck,
+        Share,
+        UPSDevice,
+        VirtualMachine,
+    )
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +43,8 @@ class UnraidServerData(TypedDict):  # noqa: D101
     shares: dict[str, Share]
     vms: dict[str, VirtualMachine]
     docker: dict[str, DockerContainer]
+    parity: ParityCheck | None
+    ups_devices: dict[str, UPSDevice]
 
 
 class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
@@ -43,6 +54,7 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
     known_shares: set[str]
     known_vms: set[str]
     known_docker: set[str]
+    known_ups_devices: set[str]
     config_entry: UnraidConfigEntry
 
     def __init__(
@@ -60,12 +72,14 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.share_callbacks: set[Callable[[Share], None]] = set()
         self.vm_callbacks: set[Callable[[VirtualMachine], None]] = set()
         self.docker_callbacks: set[Callable[[DockerContainer], None]] = set()
+        self.ups_callbacks: set[Callable[[UPSDevice], None]] = set()
 
     async def _async_setup(self) -> None:
         self.known_disks: set[str] = set()
         self.known_shares: set[str] = set()
         self.known_vms: set[str] = set()
         self.known_docker: set[str] = set()
+        self.known_ups_devices: set[str] = set()
 
     async def _async_update_data(self) -> UnraidServerData:
         data = UnraidServerData()
@@ -81,6 +95,10 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     tg.create_task(self._update_vms(data))
                 if self.config_entry.options.get(CONF_DOCKER, False):
                     tg.create_task(self._update_docker(data))
+                if self.config_entry.options.get(CONF_PARITY, True):
+                    tg.create_task(self._update_parity(data))
+                if self.config_entry.options.get(CONF_UPS, True):
+                    tg.create_task(self._update_ups_devices(data))
 
         except* ClientConnectorSSLError as exc:
             _LOGGER.debug("Update: SSL error: %s", str(exc))
@@ -202,6 +220,38 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
             _LOGGER.error("Unexpected error while updating Docker: %s", exc)
         data["docker"] = docker
 
+    async def _update_parity(self, data: UnraidServerData) -> None:
+        parity = None
+        try:
+            parity = await self.api_client.query_parity_check()
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "Parity check information is not available on this Unraid server: %s. Parity monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating parity check status: %s", exc)
+        data["parity"] = parity
+
+    async def _update_ups_devices(self, data: UnraidServerData) -> None:
+        ups_devices = {}
+        try:
+            query_response = await self.api_client.query_ups_devices()
+
+            for device in query_response:
+                ups_devices[device.id] = device
+                if device.id not in self.known_ups_devices:
+                    self.known_ups_devices.add(device.id)
+                    self._do_callback(self.ups_callbacks, device)
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "UPS devices are not available on this Unraid server: %s. UPS monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating UPS devices: %s", exc)
+        data["ups_devices"] = ups_devices
+
     def subscribe_disks(self, callback: Callable[[Disk], None]) -> None:
         self.disk_callbacks.add(callback)
         for disk_id in self.known_disks:
@@ -221,6 +271,11 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.docker_callbacks.add(callback)
         for container_id in self.known_docker:
             self._do_callback([callback], self.data["docker"][container_id])
+
+    def subscribe_ups_devices(self, callback: Callable[[UPSDevice], None]) -> None:
+        self.ups_callbacks.add(callback)
+        for device_id in self.known_ups_devices:
+            self._do_callback([callback], self.data["ups_devices"][device_id])
 
     async def async_vm_action(self, vm_id: str, action: str) -> bool:
         """Execute an action on a VM."""
