@@ -16,7 +16,8 @@
                     "vms": "Monitor VMs",
                     "docker": "Monitor Docker containers",
                     "parity": "Monitor parity checks",
-                    "ups": "Monitor UPS devices"
+                    "ups": "Monitor UPS devices",
+                    "license": "Monitor license/registration"
                 }
             },
             "reauth_key": {
@@ -32,7 +33,8 @@
                     "vms": "Monitor VMs",
                     "docker": "Monitor Docker containers",
                     "parity": "Monitor parity checks",
-                    "ups": "Monitor UPS devices"
+                    "ups": "Monitor UPS devices",
+                    "license": "Monitor license/registration"
                 }
             }
         },
@@ -113,6 +115,23 @@
             },
             "disk_usage": {
                 "name": "{disk_name} usage"
+            },
+            "disk_smart_status": {
+                "name": "{disk_name} SMART status",
+                "state": {
+                    "ok": "OK",
+                    "failed": "Failed",
+                    "unknown": "Unknown"
+                }
+            },
+            "disk_read_errors": {
+                "name": "{disk_name} read errors"
+            },
+            "disk_read_count": {
+                "name": "{disk_name} read count"
+            },
+            "disk_write_count": {
+                "name": "{disk_name} write count"
             },
             "share_free": {
                 "name": "{share_name} free space"
@@ -208,6 +227,32 @@
             },
             "ups_output_voltage": {
                 "name": "{ups_name} Output voltage"
+            },
+            "license_type": {
+                "name": "License type",
+                "state": {
+                    "basic": "Basic",
+                    "plus": "Plus",
+                    "pro": "Pro",
+                    "starter": "Starter",
+                    "unleashed": "Unleashed",
+                    "lifetime": "Lifetime",
+                    "invalid": "Invalid",
+                    "trial": "Trial"
+                }
+            },
+            "license_state": {
+                "name": "License state",
+                "state": {
+                    "registered": "Registered",
+                    "unregistered": "Unregistered",
+                    "expired": "Expired",
+                    "blacklisted": "Blacklisted",
+                    "trial": "Trial"
+                }
+            },
+            "license_expiration": {
+                "name": "License expiration"
             }
         },
         "binary_sensor": {
@@ -267,7 +312,8 @@
                     "vms": "Monitor VMs",
                     "docker": "Monitor Docker containers",
                     "parity": "Monitor parity checks",
-                    "ups": "Monitor UPS devices"
+                    "ups": "Monitor UPS devices",
+                    "license": "Monitor license/registration"
                 }
             }
         }

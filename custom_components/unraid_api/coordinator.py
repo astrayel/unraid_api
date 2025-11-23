@@ -13,7 +13,16 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from pydantic_core import ValidationError
 
 from .api import IncompatibleApiError, UnraidAuthError, UnraidGraphQLError
-from .const import CONF_DOCKER, CONF_DRIVES, CONF_PARITY, CONF_SHARES, CONF_UPS, CONF_VMS, DOMAIN
+from .const import (
+    CONF_DOCKER,
+    CONF_DRIVES,
+    CONF_LICENSE,
+    CONF_PARITY,
+    CONF_SHARES,
+    CONF_UPS,
+    CONF_VMS,
+    DOMAIN,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,6 +37,7 @@ if TYPE_CHECKING:
         DockerContainer,
         Metrics,
         ParityCheck,
+        Registration,
         Share,
         UPSDevice,
         VirtualMachine,
@@ -45,6 +55,7 @@ class UnraidServerData(TypedDict):  # noqa: D101
     docker: dict[str, DockerContainer]
     parity: ParityCheck | None
     ups_devices: dict[str, UPSDevice]
+    registration: Registration | None
 
 
 class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
@@ -99,6 +110,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     tg.create_task(self._update_parity(data))
                 if self.config_entry.options.get(CONF_UPS, True):
                     tg.create_task(self._update_ups_devices(data))
+                if self.config_entry.options.get(CONF_LICENSE, True):
+                    tg.create_task(self._update_registration(data))
 
         except* ClientConnectorSSLError as exc:
             _LOGGER.debug("Update: SSL error: %s", str(exc))
@@ -251,6 +264,19 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         except Exception as exc:
             _LOGGER.error("Unexpected error while updating UPS devices: %s", exc)
         data["ups_devices"] = ups_devices
+
+    async def _update_registration(self, data: UnraidServerData) -> None:
+        registration = None
+        try:
+            registration = await self.api_client.query_registration()
+        except UnraidGraphQLError as exc:
+            _LOGGER.warning(
+                "Registration information is not available on this Unraid server: %s. License monitoring will be disabled.",
+                exc.args[0],
+            )
+        except Exception as exc:
+            _LOGGER.error("Unexpected error while updating registration: %s", exc)
+        data["registration"] = registration
 
     def subscribe_disks(self, callback: Callable[[Disk], None]) -> None:
         self.disk_callbacks.add(callback)

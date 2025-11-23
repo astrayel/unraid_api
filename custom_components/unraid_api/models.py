@@ -25,6 +25,21 @@ class DiskType(StrEnum):  # noqa: D101
     Cache = "CACHE"
 
 
+class DiskInterfaceType(StrEnum):  # noqa: D101
+    SAS = "SAS"
+    SATA = "SATA"
+    USB = "USB"
+    PCIE = "PCIE"
+    NVME = "NVME"
+    UNKNOWN = "UNKNOWN"
+
+
+class DiskSmartStatus(StrEnum):  # noqa: D101
+    OK = "OK"
+    FAILED = "FAILED"
+    UNKNOWN = "UNKNOWN"
+
+
 class ArrayState(StrEnum):  # noqa: D101
     STARTED = "STARTED"
     STOPPED = "STOPPED"
@@ -85,6 +100,16 @@ class Disk:
     type: DiskType
     id: str
     is_spinning: bool
+    # Extended info
+    vendor: str | None = None
+    model: str | None = None
+    serial_num: str | None = None
+    interface_type: DiskInterfaceType | None = None
+    smart_status: DiskSmartStatus | None = None
+    firmware_revision: str | None = None
+    num_errors: int | None = None
+    num_reads: int | None = None
+    num_writes: int | None = None
 
 
 @dataclass
@@ -184,3 +209,33 @@ class UPSDevice:
     input_voltage: float
     output_voltage: float
     load_percentage: int  # 0-100%
+
+
+class RegistrationType(StrEnum):  # noqa: D101
+    BASIC = "BASIC"
+    PLUS = "PLUS"
+    PRO = "PRO"
+    STARTER = "STARTER"
+    UNLEASHED = "UNLEASHED"
+    LIFETIME = "LIFETIME"
+    INVALID = "INVALID"
+    TRIAL = "TRIAL"
+
+
+class RegistrationState(StrEnum):  # noqa: D101
+    REGISTERED = "REGISTERED"
+    UNREGISTERED = "UNREGISTERED"
+    EXPIRED = "EXPIRED"
+    BLACKLISTED = "BLACKLISTED"
+    TRIAL = "TRIAL"
+
+
+@dataclass
+class Registration:
+    """Server Registration/License."""
+
+    id: str
+    license_type: RegistrationType
+    state: RegistrationState
+    expiration: str | None  # Date string
+    update_expiration: str | None  # Date string

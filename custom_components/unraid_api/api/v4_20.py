@@ -8,6 +8,8 @@ from custom_components.unraid_api.models import (
     Array,
     ArrayState,
     Disk,
+    DiskInterfaceType,
+    DiskSmartStatus,
     DiskStatus,
     DiskType,
     DockerContainer,
@@ -15,6 +17,9 @@ from custom_components.unraid_api.models import (
     Metrics,
     ParityCheck,
     ParityCheckStatus,
+    Registration,
+    RegistrationState,
+    RegistrationType,
     ServerInfo,
     Share,
     UPSDevice,
@@ -67,6 +72,21 @@ class UnraidApiV420(UnraidApiClient):
 
     async def query_disks(self) -> list[Disk]:
         response = await self.call_api(DISKS_QUERY, DiskQuery)
+
+        def map_disk_extended_info(disk) -> dict:
+            """Map extended disk information."""
+            return {
+                "vendor": disk.vendor,
+                "model": disk.model,
+                "serial_num": disk.serial_num,
+                "interface_type": DiskInterfaceType(disk.interface_type) if disk.interface_type else None,
+                "smart_status": DiskSmartStatus(disk.smart_status) if disk.smart_status else None,
+                "firmware_revision": disk.firmware_revision,
+                "num_errors": disk.num_errors,
+                "num_reads": disk.num_reads,
+                "num_writes": disk.num_writes,
+            }
+
         disks = [
             Disk(
                 name=disk.name,
@@ -78,6 +98,7 @@ class UnraidApiV420(UnraidApiClient):
                 type=disk.type,
                 id=disk.id,
                 is_spinning=disk.is_spinning,
+                **map_disk_extended_info(disk),
             )
             for disk in response.array.disks
         ]
@@ -93,6 +114,7 @@ class UnraidApiV420(UnraidApiClient):
                     type=disk.type,
                     id=disk.id,
                     is_spinning=disk.is_spinning,
+                    **map_disk_extended_info(disk),
                 )
                 for disk in response.array.caches
             ]
@@ -109,6 +131,7 @@ class UnraidApiV420(UnraidApiClient):
                     type=disk.type,
                     id=disk.id,
                     is_spinning=disk.is_spinning,
+                    **map_disk_extended_info(disk),
                 )
                 for disk in response.array.parities
             ]
@@ -238,6 +261,17 @@ class UnraidApiV420(UnraidApiClient):
             for device in response.ups_devices
         ]
 
+    async def query_registration(self) -> Registration:
+        """Query server registration/license information."""
+        response = await self.call_api(REGISTRATION_QUERY, RegistrationQuery)
+        return Registration(
+            id=response.registration.id,
+            license_type=RegistrationType(response.registration.type),
+            state=RegistrationState(response.registration.state),
+            expiration=response.registration.expiration,
+            update_expiration=response.registration.update_expiration,
+        )
+
 
 ## Queries
 
@@ -300,6 +334,15 @@ query Disks {
       type
       id
       isSpinning
+      vendor
+      model
+      serialNum
+      interfaceType
+      smartStatus
+      firmwareRevision
+      numErrors
+      numReads
+      numWrites
     }
     disks {
       name
@@ -312,6 +355,15 @@ query Disks {
       type
       id
       isSpinning
+      vendor
+      model
+      serialNum
+      interfaceType
+      smartStatus
+      firmwareRevision
+      numErrors
+      numReads
+      numWrites
     }
     parities {
       name
@@ -320,6 +372,15 @@ query Disks {
       type
       id
       isSpinning
+      vendor
+      model
+      serialNum
+      interfaceType
+      smartStatus
+      firmwareRevision
+      numErrors
+      numReads
+      numWrites
     }
   }
 }
@@ -493,6 +554,18 @@ query UPS {
 }
 """
 
+REGISTRATION_QUERY = """
+query Registration {
+  registration {
+    id
+    type
+    state
+    expiration
+    updateExpiration
+  }
+}
+"""
+
 ## Api Models
 
 
@@ -573,6 +646,15 @@ class ParityDisk(BaseModel):  # noqa: D101
     type: DiskType
     id: str
     is_spinning: bool = Field(alias="isSpinning")
+    vendor: str | None = None
+    model: str | None = None
+    serial_num: str | None = Field(alias="serialNum", default=None)
+    interface_type: str | None = Field(alias="interfaceType", default=None)
+    smart_status: str | None = Field(alias="smartStatus", default=None)
+    firmware_revision: str | None = Field(alias="firmwareRevision", default=None)
+    num_errors: int | None = Field(alias="numErrors", default=None)
+    num_reads: int | None = Field(alias="numReads", default=None)
+    num_writes: int | None = Field(alias="numWrites", default=None)
 
 
 class FSDisk(ParityDisk):  # noqa: D101
@@ -709,3 +791,16 @@ class _UPSDevice(BaseModel):  # noqa: D101
 
 class UPSQuery(BaseModel):  # noqa: D101
     ups_devices: list[_UPSDevice] = Field(alias="upsDevices")
+
+
+### Registration
+class _Registration(BaseModel):  # noqa: D101
+    id: str
+    type: str
+    state: str
+    expiration: str | None = None
+    update_expiration: str | None = Field(alias="updateExpiration", default=None)
+
+
+class RegistrationQuery(BaseModel):  # noqa: D101
+    registration: _Registration

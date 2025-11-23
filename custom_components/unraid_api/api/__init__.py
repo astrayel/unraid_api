@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         DockerContainer,
         Metrics,
         ParityCheck,
+        Registration,
         ServerInfo,
         Share,
         UPSDevice,
@@ -181,6 +182,10 @@ class UnraidApiClient:
 
     @abstractmethod
     async def query_ups_devices(self) -> list[UPSDevice]:
+        pass
+
+    @abstractmethod
+    async def query_registration(self) -> Registration:
         pass
 
 

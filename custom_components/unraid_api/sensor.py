@@ -15,7 +15,15 @@ from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation, U
 from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DOCKER, CONF_DRIVES, CONF_PARITY, CONF_SHARES, CONF_UPS, CONF_VMS
+from .const import (
+    CONF_DOCKER,
+    CONF_DRIVES,
+    CONF_LICENSE,
+    CONF_PARITY,
+    CONF_SHARES,
+    CONF_UPS,
+    CONF_VMS,
+)
 from .coordinator import UnraidDataUpdateCoordinator
 from .models import (
     Disk,
@@ -24,6 +32,7 @@ from .models import (
     DockerState,
     ParityCheck,
     ParityCheckStatus,
+    Registration,
     Share,
     UPSDevice,
     VirtualMachine,
@@ -228,6 +237,13 @@ DISK_SENSOR_DESCRIPTIONS: tuple[UnraidDiskSensorEntityDescription, ...] = (
             "disk_new",
         ],
         entity_category=EntityCategory.DIAGNOSTIC,
+        extra_values_fn=lambda disk: {
+            "vendor": disk.vendor,
+            "model": disk.model,
+            "serial_number": disk.serial_num,
+            "interface_type": disk.interface_type.value if disk.interface_type else None,
+            "firmware_revision": disk.firmware_revision,
+        },
     ),
     UnraidDiskSensorEntityDescription(
         key="disk_temp",
@@ -235,6 +251,34 @@ DISK_SENSOR_DESCRIPTIONS: tuple[UnraidDiskSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         value_fn=lambda disk: disk.temp,
+    ),
+    UnraidDiskSensorEntityDescription(
+        key="disk_smart_status",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda disk: disk.smart_status.value.lower() if disk.smart_status else "unknown",
+        options=["ok", "failed", "unknown"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidDiskSensorEntityDescription(
+        key="disk_read_errors",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda disk: disk.num_errors,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    UnraidDiskSensorEntityDescription(
+        key="disk_read_count",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda disk: disk.num_reads,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    UnraidDiskSensorEntityDescription(
+        key="disk_write_count",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda disk: disk.num_writes,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
     ),
 )
 
@@ -485,6 +529,51 @@ UPS_SENSOR_DESCRIPTIONS: tuple[UnraidUPSSensorEntityDescription, ...] = (
     ),
 )
 
+LICENSE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
+    UnraidSensorEntityDescription(
+        key="license_type",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda coordinator: coordinator.data["registration"].license_type.lower()
+        if coordinator.data["registration"]
+        else None,
+        options=[
+            "basic",
+            "plus",
+            "pro",
+            "starter",
+            "unleashed",
+            "lifetime",
+            "invalid",
+            "trial",
+        ],
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="license_state",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda coordinator: coordinator.data["registration"].state.lower()
+        if coordinator.data["registration"]
+        else None,
+        options=[
+            "registered",
+            "unregistered",
+            "expired",
+            "blacklisted",
+            "trial",
+        ],
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="license_expiration",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda coordinator: coordinator.data["registration"].expiration
+        if coordinator.data["registration"]
+        else None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
@@ -512,6 +601,12 @@ async def async_setup_entry(
     if config_entry.options.get(CONF_PARITY, True):
         entities.extend(
             UnraidSensor(description, config_entry) for description in PARITY_SENSOR_DESCRIPTIONS
+        )
+
+    # Add license/registration sensors if license monitoring is enabled
+    if config_entry.options.get(CONF_LICENSE, True):
+        entities.extend(
+            UnraidSensor(description, config_entry) for description in LICENSE_SENSOR_DESCRIPTIONS
         )
 
     async_add_entites(entities)
