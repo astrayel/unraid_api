@@ -68,7 +68,14 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.known_docker: set[str] = set()
 
     async def _async_update_data(self) -> UnraidServerData:
-        data = UnraidServerData()
+        data: UnraidServerData = {
+            "metrics": None,
+            "array": None,
+            "disks": {},
+            "shares": {},
+            "vms": {},
+            "docker": {},
+        }
         try:
             async with asyncio.TaskGroup() as tg:
                 tg.create_task(self._update_metrics(data))
@@ -114,7 +121,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                 translation_placeholders={"error_msg": exc.exceptions[0].args[0]},
             ) from exc
         except* ValidationError as exc:
-            _LOGGER.debug("Update: invalid data")
+            _LOGGER.error("Update: invalid data - ValidationError: %s", exc.exceptions[0])
+            _LOGGER.error("Validation error details: %s", exc.exceptions[0].errors() if hasattr(exc.exceptions[0], 'errors') else str(exc.exceptions[0]))
             raise UpdateFailed(
                 translation_domain=DOMAIN,
                 translation_key="data_invalid",
