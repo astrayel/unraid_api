@@ -277,6 +277,7 @@ VM_SENSOR_DESCRIPTIONS: tuple[UnraidVmSensorEntityDescription, ...] = (
         options=[
             "RUNNING",
             "STOPPED",
+            "SHUTOFF",
             "PAUSED",
             "PMSUSPENDED",
             "SHUTTING_DOWN",

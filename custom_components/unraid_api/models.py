@@ -100,6 +100,7 @@ class Array:
 class VmState(StrEnum):  # noqa: D101
     RUNNING = "RUNNING"
     STOPPED = "STOPPED"
+    SHUTOFF = "SHUTOFF"
     PAUSED = "PAUSED"
     PMSUSPENDED = "PMSUSPENDED"
     SHUTTING_DOWN = "SHUTTING_DOWN"
