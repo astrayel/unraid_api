@@ -92,6 +92,14 @@ class UnraidDiskBinarySensorEntity(
         self._attr_device_info = config_entry.runtime_data.device_info
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.disk_id in self.coordinator.data.get("disks", {})
+        )
+
+    @property
     def is_on(self) -> StateType:
         try:
             return self.entity_description.value_fn(self.coordinator.data["disks"][self.disk_id])

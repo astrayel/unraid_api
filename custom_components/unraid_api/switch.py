@@ -67,6 +67,14 @@ class UnraidVmSwitch(CoordinatorEntity[UnraidDataUpdateCoordinator], SwitchEntit
         self._attr_device_info = config_entry.runtime_data.device_info
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.vm_id in self.coordinator.data.get("vms", {})
+        )
+
+    @property
     def is_on(self) -> bool | None:
         """Return true if VM is running."""
         try:
@@ -114,6 +122,14 @@ class UnraidDockerSwitch(CoordinatorEntity[UnraidDataUpdateCoordinator], SwitchE
         }
         self._attr_available = False
         self._attr_device_info = config_entry.runtime_data.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.container_id in self.coordinator.data.get("docker", {})
+        )
 
     @property
     def is_on(self) -> bool | None:

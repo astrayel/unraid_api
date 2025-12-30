@@ -498,6 +498,14 @@ class UnraidDiskSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorEnt
         self._attr_device_info = config_entry.runtime_data.device_info
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.disk_id in self.coordinator.data.get("disks", {})
+        )
+
+    @property
     def native_value(self) -> StateType:
         try:
             return self.entity_description.value_fn(self.coordinator.data["disks"][self.disk_id])
@@ -536,6 +544,14 @@ class UnraidShareSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorEn
         self._attr_translation_placeholders = {"share_name": self.share_name}
         self._attr_available = False
         self._attr_device_info = config_entry.runtime_data.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.share_name in self.coordinator.data.get("shares", {})
+        )
 
     @property
     def native_value(self) -> StateType:
@@ -582,6 +598,14 @@ class UnraidVmSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorEntit
         self._attr_device_info = config_entry.runtime_data.device_info
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.vm_id in self.coordinator.data.get("vms", {})
+        )
+
+    @property
     def native_value(self) -> StateType:
         try:
             return self.entity_description.value_fn(self.coordinator.data["vms"][self.vm_id])
@@ -624,6 +648,14 @@ class UnraidDockerSensor(CoordinatorEntity[UnraidDataUpdateCoordinator], SensorE
         }
         self._attr_available = False
         self._attr_device_info = config_entry.runtime_data.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.container_id in self.coordinator.data.get("docker", {})
+        )
 
     @property
     def native_value(self) -> StateType:

@@ -120,6 +120,14 @@ class UnraidVmButton(CoordinatorEntity[UnraidDataUpdateCoordinator], ButtonEntit
         self._attr_available = False
         self._attr_device_info = config_entry.runtime_data.device_info
 
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.vm_id in self.coordinator.data.get("vms", {})
+        )
+
     async def async_press(self) -> None:
         """Handle the button press."""
         await self.coordinator.async_vm_action(self.vm_id, self.entity_description.action)
@@ -149,6 +157,14 @@ class UnraidDockerButton(CoordinatorEntity[UnraidDataUpdateCoordinator], ButtonE
         }
         self._attr_available = False
         self._attr_device_info = config_entry.runtime_data.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            self.coordinator.last_update_success
+            and self.container_id in self.coordinator.data.get("docker", {})
+        )
 
     async def async_press(self) -> None:
         """Handle the button press."""
