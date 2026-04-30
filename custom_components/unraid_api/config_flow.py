@@ -30,6 +30,7 @@ from .const import (
     CONF_DOCKER_MODE,
     CONF_DRIVES,
     CONF_SHARES,
+    CONF_VMS,
     DOCKER_MODE_ALL,
     DOCKER_MODE_ENABLED_ONLY,
     DOCKER_MODE_EXCEPT_DISABLED,
@@ -80,6 +81,7 @@ OPTIONS_SCHEMA = vol.Schema(
                 translation_key="docker_mode",
             )
         ),
+        vol.Required(CONF_VMS, default=False): BooleanSelector(),
     }
 )
 
@@ -88,7 +90,7 @@ class UnraidConfigFlow(ConfigFlow, domain=DOMAIN):
     """Unraid Config flow."""
 
     VERSION = 1
-    MINOR_VERSION = 2
+    MINOR_VERSION = 3
 
     def __init__(self) -> None:
         super().__init__()

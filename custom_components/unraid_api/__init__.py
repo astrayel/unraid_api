@@ -14,8 +14,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 
 from .api import get_api_client
-from .const import CONF_DOCKER_MODE, DOCKER_MODE_OFF, DOMAIN, PLATFORMS
-from .coordinator import Container, UnraidDataUpdateCoordinator
+from .const import CONF_DOCKER_MODE, CONF_VMS, DOCKER_MODE_OFF, DOMAIN, PLATFORMS
+from .coordinator import Container, UnraidDataUpdateCoordinator, VmDevice
 from .exceptions import (
     GraphQLError,
     GraphQLMultiError,
@@ -38,6 +38,7 @@ class UnraidData:
     coordinator: UnraidDataUpdateCoordinator
     device_info: DeviceInfo
     containers: dict[str, Container]
+    vms: dict[str, VmDevice]
 
 
 type UnraidConfigEntry = ConfigEntry[UnraidData]
@@ -100,7 +101,7 @@ async def async_setup_entry(
         configuration_url=server_info.localurl,
     )
     coordinator = UnraidDataUpdateCoordinator(hass, config_entry, api_client)
-    config_entry.runtime_data = UnraidData(coordinator, device_info, containers={})
+    config_entry.runtime_data = UnraidData(coordinator, device_info, containers={}, vms={})
     await coordinator.async_config_entry_first_refresh()
 
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
@@ -129,10 +130,12 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: UnraidConfigEnt
     if config_entry.version == 1:
         new_options = config_entry.options.copy()
         if config_entry.minor_version < 2:  # noqa: PLR2004
-            new_options[CONF_DOCKER_MODE] = DOCKER_MODE_OFF
+            new_options.setdefault(CONF_DOCKER_MODE, DOCKER_MODE_OFF)
+        if config_entry.minor_version < 3:  # noqa: PLR2004
+            new_options.setdefault(CONF_VMS, False)
 
         hass.config_entries.async_update_entry(
-            config_entry, data=config_entry.data, options=new_options, minor_version=2, version=1
+            config_entry, data=config_entry.data, options=new_options, minor_version=3, version=1
         )
 
     _LOGGER.debug(
@@ -158,6 +161,11 @@ async def async_remove_config_entry_device(
             for container in config_entry.runtime_data.containers.values():
                 for container_identifier in container["device_info"]["identifiers"]:
                     if identifier == container_identifier:
+                        # Still active
+                        return False
+            for vm in config_entry.runtime_data.vms.values():
+                for vm_identifier in vm["device_info"]["identifiers"]:
+                    if identifier == vm_identifier:
                         # Still active
                         return False
     return True

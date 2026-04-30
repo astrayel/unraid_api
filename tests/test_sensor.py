@@ -536,3 +536,87 @@ async def test_docker_sensors_removed(
     assert hass.states.get("sensor.test_server_homeassistant_state") is None
     assert hass.states.get("sensor.test_server_postgres_state")
     assert hass.states.get("sensor.test_server_grafana_public_state")
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+@pytest.mark.parametrize(("api_state"), API_STATES)
+async def test_vm_sensors(
+    api_state: ApiState, hass: HomeAssistant, mock_api_client: MagicMock
+) -> None:
+    """Test VM sensor entities."""
+    api_client: MockApiClient = mock_api_client.return_value
+    api_client.state = api_state()
+    assert await setup_config_entry(hass)
+
+    state = hass.states.get("sensor.test_server_windows11")
+    assert state.state == "running"
+
+    state = hass.states.get("sensor.test_server_ubuntu")
+    assert state.state == "shutoff"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_aggregate_sensors(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
+    """Test VM aggregate sensors on the root device."""
+    assert mock_api_client
+    assert await setup_config_entry(hass)
+
+    state = hass.states.get("sensor.test_server_vms_running")
+    assert state.state == "1"
+
+    state = hass.states.get("sensor.test_server_vms_total")
+    assert state.state == "2"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_sensors_disabled(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
+    """Test that VM entities are absent when CONF_VMS is disabled."""
+    assert mock_api_client
+    assert await setup_config_entry(hass, options=MOCK_OPTION_DATA_DISABLED)
+
+    assert hass.states.get("sensor.test_server_windows11") is None
+    assert hass.states.get("sensor.test_server_ubuntu") is None
+    assert hass.states.get("sensor.test_server_vms_running") is None
+    assert hass.states.get("sensor.test_server_vms_total") is None
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_sensor_removed(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
+    """Test that VM sensor is removed when the VM disappears between refreshes."""
+    api_client: MockApiClient = mock_api_client.return_value
+
+    config_entry = await setup_config_entry(hass)
+    assert config_entry
+
+    assert hass.states.get("sensor.test_server_windows11")
+    assert hass.states.get("sensor.test_server_ubuntu")
+
+    api_client.state.vms.pop(0)
+    await config_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_server_windows11") is None
+    assert hass.states.get("sensor.test_server_ubuntu")
+    assert hass.states.get("sensor.test_server_vms_running").state == "0"
+    assert hass.states.get("sensor.test_server_vms_total").state == "1"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_sensor_id_change_keeps_entity(
+    hass: HomeAssistant, mock_api_client: MagicMock
+) -> None:
+    """A VM keeping its name but changing internal id must keep the same entity."""
+    api_client: MockApiClient = mock_api_client.return_value
+
+    config_entry = await setup_config_entry(hass)
+    state = hass.states.get("sensor.test_server_windows11")
+    assert state
+    entity_id = state.entity_id
+
+    api_client.state.vms[0].id = "new-vm-id-after-recreate"
+    await config_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "running"

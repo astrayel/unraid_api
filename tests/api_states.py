@@ -19,6 +19,8 @@ from custom_components.unraid_api.models import (
     ServerInfo,
     Share,
     UpsDevice,
+    VirtualMachine,
+    VmState,
 )
 
 
@@ -32,6 +34,7 @@ class ApiState:
     disks: ClassVar[list[Disk]]
     ups: ClassVar[list[UpsDevice]]
     docker: ClassVar[list[DockerContainer]]
+    vms: ClassVar[list[VirtualMachine]]
 
 
 class ApiState420(ApiState):
@@ -159,6 +162,10 @@ class ApiState420(ApiState):
                 label_monitor=True,
                 label_name="Grafana Public",
             ),
+        ]
+        self.vms = [
+            VirtualMachine(id="vm-id-1", name="Windows11", state=VmState.RUNNING),
+            VirtualMachine(id="vm-id-2", name="Ubuntu", state=VmState.SHUTOFF),
         ]
 
 

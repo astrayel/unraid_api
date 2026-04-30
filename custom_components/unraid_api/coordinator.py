@@ -18,6 +18,7 @@ from .const import (
     CONF_DOCKER_MODE,
     CONF_DRIVES,
     CONF_SHARES,
+    CONF_VMS,
     DOCKER_MODE_ENABLED_ONLY,
     DOCKER_MODE_EXCEPT_DISABLED,
     DOCKER_MODE_OFF,
@@ -41,12 +42,17 @@ if TYPE_CHECKING:
     from . import UnraidConfigEntry
     from .api import UnraidApiClient
     from .entity import UnraidBaseEntity
-    from .models import Disk, MetricsArray, Share, UpsDevice
+    from .models import Disk, MetricsArray, Share, UpsDevice, VirtualMachine
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Container(TypedDict):  # noqa: D101
+    device_info: DeviceInfo
+    entities: list[UnraidBaseEntity]
+
+
+class VmDevice(TypedDict):  # noqa: D101
     device_info: DeviceInfo
     entities: list[UnraidBaseEntity]
 
@@ -57,6 +63,7 @@ class UnraidServerData(TypedDict):  # noqa: D101
     shares: dict[str, Share]
     ups_devices: dict[str, UpsDevice]
     docker_containers: dict[str, DockerContainer]
+    vms: dict[str, VirtualMachine]
     cpu_metrics: CpuMetricsSubscription
     cpu_usage: float
     memory: MemorySubscription
@@ -85,7 +92,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.disk_callbacks: set[Callable[[Disk], None]] = set()
         self.share_callbacks: set[Callable[[Share], None]] = set()
         self.ups_callbacks: set[Callable[[UpsDevice], None]] = set()
-        self.docker_callbacks: set[Callable[[DockerContainer], None]] = set()
+        self.docker_callbacks: set[Callable[[str], None]] = set()
+        self.vm_callbacks: set[Callable[[str], None]] = set()
 
     async def _async_setup(self) -> None:
         self.known_disks: set[str] = set()
@@ -136,6 +144,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     tg.create_task(self._update_ups())
                 if self.config_entry.options[CONF_DOCKER_MODE] not in DOCKER_MODE_OFF:
                     tg.create_task(self._update_docker())
+                if self.config_entry.options.get(CONF_VMS):
+                    tg.create_task(self._update_vms())
 
         except* ClientConnectorSSLError as exc:
             _LOGGER.debug("Update: SSL error: %s", str(exc))
@@ -312,6 +322,51 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     remove_config_entry_id=self.config_entry.entry_id,
                 )
 
+    async def _update_vms(self) -> None:
+        vms: dict[str, VirtualMachine] = {}
+        query_response = await self.api_client.query_vms()
+
+        for vm in query_response:
+            if vm.name in vms:
+                _LOGGER.warning("Duplicate VM name %s", vm.name)
+                vms.pop(vm.name)
+                continue
+            vms[vm.name] = vm
+
+        self.data["vms"] = vms
+        found_vms = set(vms.keys())
+        known_vms = set(self.config_entry.runtime_data.vms.keys())
+        new_vms = found_vms - known_vms
+        removed_vms = known_vms - found_vms
+
+        for vm_name in new_vms:
+            device_info = DeviceInfo(
+                identifiers={(DOMAIN, f"{self.config_entry.entry_id}_vm_{vm_name}")},
+                name=f"{self.config_entry.runtime_data.device_info['name']} {vm_name}",
+                via_device=(DOMAIN, self.config_entry.entry_id),
+                entry_type=DeviceEntryType.SERVICE,
+            )
+            self.config_entry.runtime_data.vms[vm_name] = VmDevice(
+                device_info=device_info, entities=[]
+            )
+            self._do_callback(self.vm_callbacks, vm_name)
+
+        for vm_name in removed_vms:
+            _LOGGER.debug("Removing VM: %s", vm_name)
+            vm_device = self.config_entry.runtime_data.vms.pop(vm_name)
+            for entity in vm_device["entities"]:
+                await entity.async_remove()
+
+            device_registry = dr.async_get(self.hass)
+            device = device_registry.async_get_device(
+                identifiers={(DOMAIN, f"{self.config_entry.entry_id}_vm_{vm_name}")}
+            )
+            if device:
+                device_registry.async_update_device(
+                    device_id=device.id,
+                    remove_config_entry_id=self.config_entry.entry_id,
+                )
+
     def subscribe_disks(self, callback: Callable[[Disk], None]) -> None:
         self.disk_callbacks.add(callback)
         for disk_id in self.known_disks:
@@ -331,6 +386,11 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.docker_callbacks.add(callback)
         for container_name in self.config_entry.runtime_data.containers:
             self._do_callback([callback], container_name)
+
+    def subscribe_vms(self, callback: Callable[[str], None]) -> None:
+        self.vm_callbacks.add(callback)
+        for vm_name in self.config_entry.runtime_data.vms:
+            self._do_callback([callback], vm_name)
 
     def _cpu_metrics_callback(self, data: CpuMetricsSubscription) -> None:
         self.data["cpu_metrics"] = data
@@ -363,4 +423,16 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         container = self.data["docker_containers"][container_name]
         updated_container = await self.api_client.stop_container(container.id)
         self.data["docker_containers"][container_name] = updated_container
+        self.async_update_listeners()
+
+    async def start_vm(self, vm_name: str) -> None:
+        vm = self.data["vms"][vm_name]
+        updated_vm = await self.api_client.start_vm(vm.id)
+        self.data["vms"][vm_name] = updated_vm
+        self.async_update_listeners()
+
+    async def stop_vm(self, vm_name: str, *, force: bool = False) -> None:
+        vm = self.data["vms"][vm_name]
+        updated_vm = await self.api_client.stop_vm(vm.id, force=force)
+        self.data["vms"][vm_name] = updated_vm
         self.async_update_listeners()

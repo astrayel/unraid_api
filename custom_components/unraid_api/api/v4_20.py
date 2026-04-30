@@ -21,6 +21,8 @@ from custom_components.unraid_api.models import (
     ParityCheckStatus,
     ServerInfo,
     Share,
+    VirtualMachine,
+    VmState,
 )
 
 from . import _LOGGER, UnraidApiClient, _to_bool
@@ -206,6 +208,27 @@ class UnraidApiV420(UnraidApiClient):
         model = await self.call_api(DOCKER_STOP, DockerStop, {"stopId": container_id})
         return _make_container_obj(model.docker.stop)
 
+    async def query_vms(self) -> list[VirtualMachine]:
+        response = await self.call_api(VMS_QUERY, VmsQuery)
+        return [
+            VirtualMachine(id=vm.id, name=vm.name, state=vm.state) for vm in response.vms.domain
+        ]
+
+    async def start_vm(self, vm_id: str) -> VirtualMachine:
+        model = await self.call_api(VM_START, VmStart, {"startId": vm_id})
+        return VirtualMachine(
+            id=model.vm.start.id, name=model.vm.start.name, state=model.vm.start.state
+        )
+
+    async def stop_vm(self, vm_id: str, *, force: bool = False) -> VirtualMachine:
+        if force:
+            model = await self.call_api(VM_FORCE_STOP, VmForceStop, {"stopId": vm_id})
+            result = model.vm.force_stop
+        else:
+            model = await self.call_api(VM_STOP, VmStop, {"stopId": vm_id})
+            result = model.vm.stop
+        return VirtualMachine(id=result.id, name=result.name, state=result.state)
+
 
 ## Queries
 
@@ -325,6 +348,18 @@ query DockerContainers {
 }
 """
 
+VMS_QUERY = """
+query VirtualMachines {
+  vms {
+    domain {
+      id
+      name
+      state
+    }
+  }
+}
+"""
+
 
 ## Subscription
 CPU_USAGE_SUBSCRIPTION = """
@@ -408,6 +443,42 @@ mutation DockerStop($stopId: PrefixedID!) {
       image
       imageId
       status
+    }
+  }
+}
+"""
+
+VM_START = """
+mutation VmStart($startId: PrefixedID!) {
+  vm {
+    start(id: $startId) {
+      id
+      name
+      state
+    }
+  }
+}
+"""
+
+VM_STOP = """
+mutation VmStop($stopId: PrefixedID!) {
+  vm {
+    stop(id: $stopId) {
+      id
+      name
+      state
+    }
+  }
+}
+"""
+
+VM_FORCE_STOP = """
+mutation VmForceStop($stopId: PrefixedID!) {
+  vm {
+    forceStop(id: $stopId) {
+      id
+      name
+      state
     }
   }
 }
@@ -559,6 +630,45 @@ class DockerStop(BaseModel):  # noqa: D101
 
 class _DockerStop(BaseModel):
     stop: _DockerContainer
+
+
+### Virtual Machines
+class VmsQuery(BaseModel):  # noqa: D101
+    vms: _VmDomains
+
+
+class _VmDomains(BaseModel):
+    domain: list[_VirtualMachine]
+
+
+class _VirtualMachine(BaseModel):
+    id: str
+    name: str
+    state: VmState
+
+
+class VmStart(BaseModel):  # noqa: D101
+    vm: _VmStart
+
+
+class _VmStart(BaseModel):
+    start: _VirtualMachine
+
+
+class VmStop(BaseModel):  # noqa: D101
+    vm: _VmStop
+
+
+class _VmStop(BaseModel):
+    stop: _VirtualMachine
+
+
+class VmForceStop(BaseModel):  # noqa: D101
+    vm: _VmForceStop
+
+
+class _VmForceStop(BaseModel):
+    force_stop: _VirtualMachine = Field(alias="forceStop")
 
 
 ### CpuMetrics

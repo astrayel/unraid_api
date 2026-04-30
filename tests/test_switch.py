@@ -88,3 +88,64 @@ async def test_docker_switches_removed(hass: HomeAssistant, mock_api_client: Mag
 
     assert hass.states.get("switch.test_server_homeassistant") is None
     assert hass.states.get("switch.test_server_grafana_public")
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+@pytest.mark.parametrize(("api_state"), API_STATES)
+async def test_vm_switches(
+    api_state: ApiState, hass: HomeAssistant, mock_api_client: MagicMock
+) -> None:
+    """Test VM switch entities."""
+    api_client: MockApiClient = mock_api_client.return_value
+    api_client.state = api_state()
+    assert await setup_config_entry(hass)
+
+    state = hass.states.get("switch.test_server_windows11")
+    assert state.state == STATE_ON
+    assert state.name == "Test Server Windows11"
+
+    state = hass.states.get("switch.test_server_ubuntu")
+    assert state.state == STATE_OFF
+    assert state.name == "Test Server Ubuntu"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_switches_action(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
+    """Test VM switch start/stop actions."""
+    api_client: MockApiClient = mock_api_client.return_value
+    assert await setup_config_entry(hass)
+
+    await hass.services.async_call(
+        domain=SWITCH_DOMAIN,
+        service=SERVICE_TURN_ON,
+        service_data={ATTR_ENTITY_ID: "switch.test_server_ubuntu"},
+        blocking=True,
+    )
+    api_client.start_vm.assert_awaited_once_with(api_client.state.vms[1].id)
+
+    await hass.services.async_call(
+        domain=SWITCH_DOMAIN,
+        service=SERVICE_TURN_OFF,
+        service_data={ATTR_ENTITY_ID: "switch.test_server_windows11"},
+        blocking=True,
+    )
+    api_client.stop_vm.assert_awaited_once_with(api_client.state.vms[0].id, force=False)
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_vm_switches_removed(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
+    """Test VM switch removed when the VM disappears."""
+    api_client: MockApiClient = mock_api_client.return_value
+
+    config_entry = await setup_config_entry(hass)
+    assert config_entry
+
+    assert hass.states.get("switch.test_server_windows11")
+    assert hass.states.get("switch.test_server_ubuntu")
+
+    api_client.state.vms.pop(0)
+    await config_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("switch.test_server_windows11") is None
+    assert hass.states.get("switch.test_server_ubuntu")

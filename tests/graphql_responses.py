@@ -26,6 +26,10 @@ class GraphqlResponses:
     start_container: ClassVar[dict]
     stop_container: ClassVar[dict]
 
+    vms: ClassVar[dict]
+    start_vm: ClassVar[dict]
+    stop_vm: ClassVar[dict]
+
     is_unauthenticated = False
     unauthenticated: ClassVar[dict] = {
         "errors": [
@@ -94,6 +98,12 @@ class GraphqlResponses:
                     return self.start_container
                 case "DockerStop":
                     return self.stop_container
+                case "VirtualMachines":
+                    return self.vms
+                case "VmStart":
+                    return self.start_vm
+                case "VmStop" | "VmForceStop":
+                    return self.stop_vm
                 case _:
                     return self.not_found
         except ArithmeticError:
@@ -337,6 +347,31 @@ class GraphqlResponses420(GraphqlResponses):
                         "imageId": "sha256:e0477b544d48b26ad81e2132b8ce36f0a20dfd7eb44de9c40718fa78dc92e24d",  # noqa: E501
                         "status": "Up 28 minutes",
                     }
+                }
+            }
+        }
+
+        self.vms = {
+            "data": {
+                "vms": {
+                    "domain": [
+                        {"id": "vm-id-1", "name": "Windows11", "state": "RUNNING"},
+                        {"id": "vm-id-2", "name": "Ubuntu", "state": "SHUTOFF"},
+                    ]
+                }
+            }
+        }
+        self.start_vm = {
+            "data": {
+                "vm": {
+                    "start": {"id": "vm-id-2", "name": "Ubuntu", "state": "RUNNING"},
+                }
+            }
+        }
+        self.stop_vm = {
+            "data": {
+                "vm": {
+                    "stop": {"id": "vm-id-1", "name": "Windows11", "state": "SHUTOFF"},
                 }
             }
         }

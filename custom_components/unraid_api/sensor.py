@@ -25,9 +25,9 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from . import _LOGGER
-from .const import CONF_DRIVES, CONF_SHARES, DOMAIN
+from .const import CONF_DRIVES, CONF_SHARES, CONF_VMS, DOMAIN
 from .entity import UnraidBaseEntity, UnraidEntityDescription
-from .models import Disk, DiskType, DockerContainer, Share, UpsDevice
+from .models import Disk, DiskType, DockerContainer, Share, UpsDevice, VirtualMachine, VmState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,6 +83,14 @@ class UnraidDockerSensorEntityDescription(
 
     value_fn: Callable[[DockerContainer], StateType]
     extra_values_fn: Callable[[DockerContainer], dict[str, Any]] | None = None
+
+
+class UnraidVmSensorEntityDescription(
+    UnraidEntityDescription, SensorEntityDescription, frozen_or_thawed=True
+):
+    """Description for Unraid VM Sensor Entity."""
+
+    value_fn: Callable[[VirtualMachine], StateType]
 
 
 def calc_array_usage_percentage(coordinator: UnraidDataUpdateCoordinator) -> StateType:
@@ -379,6 +387,42 @@ DOCKER_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ...] = (
     ),
 )
 
+VM_SENSOR_DESCRIPTIONS: tuple[UnraidVmSensorEntityDescription, ...] = (
+    UnraidVmSensorEntityDescription(
+        key="vm_state",
+        device_class=SensorDeviceClass.ENUM,
+        value_fn=lambda vm: vm.state.lower(),
+        options=[
+            "running",
+            "stopped",
+            "paused",
+            "pmsuspended",
+            "shutting_down",
+            "shutoff",
+            "crashed",
+            "nostate",
+            "idle",
+        ],
+    ),
+)
+
+VM_AGGREGATE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
+    UnraidSensorEntityDescription(
+        key="vms_running",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: sum(
+            1 for vm in coordinator.data["vms"].values() if vm.state == VmState.RUNNING
+        ),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="vms_total",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: len(coordinator.data["vms"]),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,  # noqa: ARG001
@@ -391,6 +435,12 @@ async def async_setup_entry(
         for description in SENSOR_DESCRIPTIONS
         if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
     ]
+    if config_entry.options.get(CONF_VMS):
+        entities.extend(
+            UnraidSensor(description, config_entry)
+            for description in VM_AGGREGATE_SENSOR_DESCRIPTIONS
+            if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
+        )
     async_add_entites(entities)
 
     @callback
@@ -447,12 +497,25 @@ async def async_setup_entry(
         config_entry.runtime_data.containers[container_name]["entities"].extend(entities)
         async_add_entites(entities)
 
+    @callback
+    def add_vm_callback(vm_name: str) -> None:
+        _LOGGER.debug("Sensor: Adding new VM: %s", vm_name)
+        entities = [
+            UnraidVmSensor(description, config_entry, vm_name)
+            for description in VM_SENSOR_DESCRIPTIONS
+            if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
+        ]
+        config_entry.runtime_data.vms[vm_name]["entities"].extend(entities)
+        async_add_entites(entities)
+
     if config_entry.options[CONF_DRIVES]:
         config_entry.runtime_data.coordinator.subscribe_disks(add_disk_callback)
     if config_entry.options[CONF_SHARES]:
         config_entry.runtime_data.coordinator.subscribe_shares(add_share_callback)
     config_entry.runtime_data.coordinator.subscribe_ups(add_ups_callback)
     config_entry.runtime_data.coordinator.subscribe_docker(add_container_callback)
+    if config_entry.options.get(CONF_VMS):
+        config_entry.runtime_data.coordinator.subscribe_vms(add_vm_callback)
 
 
 class UnraidSensor(UnraidBaseEntity, SensorEntity):
@@ -628,3 +691,32 @@ class UnraidDockerSensor(UnraidBaseEntity, SensorEntity):
             self.container_name in self.coordinator.data["docker_containers"]
             and self.coordinator.last_update_success
         )
+
+
+class UnraidVmSensor(UnraidBaseEntity, SensorEntity):
+    """Sensor for Unraid Virtual Machines."""
+
+    entity_description: UnraidVmSensorEntityDescription
+    _attr_name = None
+
+    def __init__(
+        self,
+        description: UnraidVmSensorEntityDescription,
+        config_entry: UnraidConfigEntry,
+        vm_name: str,
+    ) -> None:
+        super().__init__(description, config_entry)
+        self.vm_name = vm_name
+        self._attr_unique_id = f"{config_entry.entry_id}-{description.key}-{self.vm_name}"
+        self._attr_device_info = config_entry.runtime_data.vms[vm_name]["device_info"]
+
+    @property
+    def native_value(self) -> StateType:
+        try:
+            return self.entity_description.value_fn(self.coordinator.data["vms"][self.vm_name])
+        except (KeyError, AttributeError):
+            return None
+
+    @property
+    def available(self) -> bool:
+        return self.vm_name in self.coordinator.data["vms"] and self.coordinator.last_update_success

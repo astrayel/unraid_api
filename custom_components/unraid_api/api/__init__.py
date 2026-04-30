@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         ServerInfo,
         Share,
         UpsDevice,
+        VirtualMachine,
     )
 
 _LOGGER = logging.getLogger(__name__)
@@ -347,6 +348,18 @@ class UnraidApiClient(UnraidApiClientBase):
 
     @abstractmethod
     async def stop_container(self, container_id: str) -> DockerContainer:
+        pass
+
+    @abstractmethod
+    async def query_vms(self) -> list[VirtualMachine]:
+        pass
+
+    @abstractmethod
+    async def start_vm(self, vm_id: str) -> VirtualMachine:
+        pass
+
+    @abstractmethod
+    async def stop_vm(self, vm_id: str, *, force: bool = False) -> VirtualMachine:
         pass
 
 

@@ -13,6 +13,7 @@ from custom_components.unraid_api.const import (
     CONF_DOCKER_MODE,
     CONF_DRIVES,
     CONF_SHARES,
+    CONF_VMS,
     DOCKER_MODE_OFF,
     DOMAIN,
 )
@@ -133,9 +134,10 @@ async def test_migrate_entry(hass: HomeAssistant) -> None:
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.minor_version == 2
+    assert entry.minor_version == 3
     assert entry.options == {
         CONF_SHARES: True,
         CONF_DRIVES: True,
         CONF_DOCKER_MODE: DOCKER_MODE_OFF,
+        CONF_VMS: False,
     }

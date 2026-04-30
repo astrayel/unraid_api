@@ -14,7 +14,8 @@
                 "data": {
                     "shares": "Monitor shares",
                     "drives": "Monitor disks",
-                    "docker_mode": "Monitor Docker Containers"
+                    "docker_mode": "Monitor Docker Containers",
+                    "vms": "Monitor Virtual Machines"
                 }
             },
             "reauth_key": {
@@ -164,6 +165,26 @@
                     "running": "Running",
                     "exited": "Exited"
                 }
+            },
+            "vm_state": {
+                "name": "State",
+                "state": {
+                    "running": "Running",
+                    "stopped": "Stopped",
+                    "paused": "Paused",
+                    "pmsuspended": "Suspended",
+                    "shutting_down": "Shutting down",
+                    "shutoff": "Shut off",
+                    "crashed": "Crashed",
+                    "nostate": "No state",
+                    "idle": "Idle"
+                }
+            },
+            "vms_running": {
+                "name": "VMs running"
+            },
+            "vms_total": {
+                "name": "VMs total"
             }
         },
         "binary_sensor": {
@@ -213,7 +234,8 @@
                 "data": {
                     "shares": "Monitor shares",
                     "drives": "Monitor disks",
-                    "docker_mode": "Monitor Docker"
+                    "docker_mode": "Monitor Docker",
+                    "vms": "Monitor Virtual Machines"
                 }
             }
         }

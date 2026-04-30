@@ -12,6 +12,7 @@ PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.
 CONF_SHARES: Final[str] = "shares"
 CONF_DRIVES: Final[str] = "drives"
 CONF_DOCKER_MODE: Final[str] = "docker_mode"
+CONF_VMS: Final[str] = "vms"
 
 DOCKER_MODE_ALL: Final[str] = "all"
 DOCKER_MODE_OFF: Final[str] = "off"

@@ -8,9 +8,10 @@ from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity, Swi
 from homeassistant.core import callback
 
 from . import _LOGGER
+from .const import CONF_VMS
 from .entity import UnraidBaseEntity, UnraidEntityDescription
 from .helpers import error_handler
-from .models import ContainerState, DockerContainer
+from .models import ContainerState, DockerContainer, VirtualMachine, VmState
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,11 +31,27 @@ class UnraidDockerSwitchEntityDescription(
     value_fn: Callable[[DockerContainer], StateType]
 
 
+class UnraidVmSwitchEntityDescription(
+    UnraidEntityDescription, SwitchEntityDescription, frozen_or_thawed=True
+):
+    """Description for Unraid VM Switch Entity."""
+
+    value_fn: Callable[[VirtualMachine], StateType]
+
+
 DOCKER_SWITCH_DESCRIPTIONS: tuple[UnraidDockerSwitchEntityDescription, ...] = (
     UnraidDockerSwitchEntityDescription(
         key="docker_switch",
         device_class=SwitchDeviceClass.SWITCH,
         value_fn=lambda container: container.state == ContainerState.RUNNING,
+    ),
+)
+
+VM_SWITCH_DESCRIPTIONS: tuple[UnraidVmSwitchEntityDescription, ...] = (
+    UnraidVmSwitchEntityDescription(
+        key="vm_switch",
+        device_class=SwitchDeviceClass.SWITCH,
+        value_fn=lambda vm: vm.state == VmState.RUNNING,
     ),
 )
 
@@ -57,7 +74,20 @@ async def async_setup_entry(
         config_entry.runtime_data.containers[container_name]["entities"].extend(entities)
         async_add_entites(entities)
 
+    @callback
+    def add_vm_callback(vm_name: str) -> None:
+        _LOGGER.debug("Switch: Adding new VM: %s", vm_name)
+        entities = [
+            UnraidVmSwitch(description, config_entry, vm_name)
+            for description in VM_SWITCH_DESCRIPTIONS
+            if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
+        ]
+        config_entry.runtime_data.vms[vm_name]["entities"].extend(entities)
+        async_add_entites(entities)
+
     config_entry.runtime_data.coordinator.subscribe_docker(add_container_callback)
+    if config_entry.options.get(CONF_VMS):
+        config_entry.runtime_data.coordinator.subscribe_vms(add_vm_callback)
 
 
 class UnraidDockerSwitch(UnraidBaseEntity, SwitchEntity):
@@ -93,3 +123,40 @@ class UnraidDockerSwitch(UnraidBaseEntity, SwitchEntity):
     @error_handler
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.stop_container(self.container_name)
+
+
+class UnraidVmSwitch(UnraidBaseEntity, SwitchEntity):
+    """Switch for Unraid Virtual Machines."""
+
+    entity_description: UnraidVmSwitchEntityDescription
+    _attr_name = None
+
+    def __init__(
+        self,
+        description: UnraidVmSwitchEntityDescription,
+        config_entry: UnraidConfigEntry,
+        vm_name: str,
+    ) -> None:
+        super().__init__(description, config_entry)
+        self.vm_name = vm_name
+        self._attr_unique_id = f"{config_entry.entry_id}-{description.key}-{self.vm_name}"
+        self._attr_device_info = config_entry.runtime_data.vms[vm_name]["device_info"]
+
+    @property
+    def is_on(self) -> bool:
+        try:
+            return self.entity_description.value_fn(self.coordinator.data["vms"][self.vm_name])
+        except (KeyError, AttributeError):
+            return None
+
+    @property
+    def available(self) -> bool:
+        return self.vm_name in self.coordinator.data["vms"] and self.coordinator.last_update_success
+
+    @error_handler
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.start_vm(self.vm_name)
+
+    @error_handler
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.stop_vm(self.vm_name)

@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         ServerInfo,
         Share,
         UpsDevice,
+        VirtualMachine,
     )
 
     from .graphql_responses import GraphqlResponses
@@ -209,6 +210,8 @@ class MockApiClient:
 
         self.start_container = AsyncMock(return_value=self.state.docker[2])
         self.stop_container = AsyncMock(return_value=self.state.docker[0])
+        self.start_vm = AsyncMock(return_value=self.state.vms[1])
+        self.stop_vm = AsyncMock(return_value=self.state.vms[0])
 
     @property
     def version(self) -> AwesomeVersion:
@@ -238,6 +241,9 @@ class MockApiClient:
     async def query_docker(self) -> list[DockerContainer]:
         return self.state.docker
 
+    async def query_vms(self) -> list[VirtualMachine]:
+        return self.state.vms
+
     async def subscribe_cpu_usage(self, callback: Callable[[float], None]) -> None:
         self.cpu_usage_callback = callback
 
@@ -253,6 +259,12 @@ class MockApiClient:
         pass
 
     async def stop_container(self, container_id: str) -> DockerContainer:
+        pass
+
+    async def start_vm(self, vm_id: str) -> VirtualMachine:
+        pass
+
+    async def stop_vm(self, vm_id: str, *, force: bool = False) -> VirtualMachine:
         pass
 
 

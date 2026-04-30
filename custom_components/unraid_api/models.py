@@ -54,6 +54,18 @@ class ContainerState(StrEnum):  # noqa: D101
     EXITED = "EXITED"
 
 
+class VmState(StrEnum):  # noqa: D101
+    RUNNING = "RUNNING"
+    STOPPED = "STOPPED"
+    PAUSED = "PAUSED"
+    PMSUSPENDED = "PMSUSPENDED"
+    SHUTTING_DOWN = "SHUTTING_DOWN"
+    SHUTOFF = "SHUTOFF"
+    CRASHED = "CRASHED"
+    NOSTATE = "NOSTATE"
+    IDLE = "IDLE"
+
+
 @dataclass
 class ServerInfo:
     """Server Info."""
@@ -143,6 +155,15 @@ class DockerContainer:
     label_unraid_webui: str | None
     label_monitor: bool | None
     label_name: str | None
+
+
+@dataclass
+class VirtualMachine:
+    """Virtual Machine."""
+
+    id: str
+    name: str
+    state: VmState
 
 
 @dataclass
