@@ -539,6 +539,59 @@ async def test_docker_sensors_removed(
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_docker_aggregate_sensors(
+    hass: HomeAssistant, mock_api_client: MagicMock
+) -> None:
+    """Test Docker aggregate sensors on the root device."""
+    assert mock_api_client
+    assert await setup_config_entry(hass)
+
+    state = hass.states.get("sensor.test_server_docker_containers_running")
+    assert state.state == "2"
+
+    state = hass.states.get("sensor.test_server_docker_containers_exited")
+    assert state.state == "1"
+
+    state = hass.states.get("sensor.test_server_docker_containers_total")
+    assert state.state == "3"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_docker_aggregate_sensors_disabled(
+    hass: HomeAssistant,
+    mock_api_client: MagicMock,  # noqa: ARG001
+) -> None:
+    """Test Docker aggregate sensors are absent when Docker monitoring is off."""
+    assert await setup_config_entry(hass, options=MOCK_OPTION_DATA_DISABLED)
+
+    assert hass.states.get("sensor.test_server_docker_containers_running") is None
+    assert hass.states.get("sensor.test_server_docker_containers_exited") is None
+    assert hass.states.get("sensor.test_server_docker_containers_total") is None
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
+async def test_docker_aggregate_sensors_update(
+    hass: HomeAssistant, mock_api_client: MagicMock
+) -> None:
+    """Test Docker aggregate sensors update when containers change."""
+    api_client: MockApiClient = mock_api_client.return_value
+
+    config_entry = await setup_config_entry(hass)
+    assert config_entry
+
+    assert hass.states.get("sensor.test_server_docker_containers_running").state == "2"
+    assert hass.states.get("sensor.test_server_docker_containers_total").state == "3"
+
+    api_client.state.docker.pop(0)
+    await config_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.test_server_docker_containers_running").state == "1"
+    assert hass.states.get("sensor.test_server_docker_containers_exited").state == "1"
+    assert hass.states.get("sensor.test_server_docker_containers_total").state == "2"
+
+
+@pytest.mark.usefixtures("entity_registry_enabled_by_default")
 @pytest.mark.parametrize(("api_state"), API_STATES)
 async def test_vm_sensors(
     api_state: ApiState, hass: HomeAssistant, mock_api_client: MagicMock

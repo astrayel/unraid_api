@@ -25,9 +25,18 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from . import _LOGGER
-from .const import CONF_DRIVES, CONF_SHARES, CONF_VMS, DOMAIN
+from .const import CONF_DOCKER_MODE, CONF_DRIVES, CONF_SHARES, CONF_VMS, DOCKER_MODE_OFF, DOMAIN
 from .entity import UnraidBaseEntity, UnraidEntityDescription
-from .models import Disk, DiskType, DockerContainer, Share, UpsDevice, VirtualMachine, VmState
+from .models import (
+    ContainerState,
+    Disk,
+    DiskType,
+    DockerContainer,
+    Share,
+    UpsDevice,
+    VirtualMachine,
+    VmState,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -406,6 +415,35 @@ VM_SENSOR_DESCRIPTIONS: tuple[UnraidVmSensorEntityDescription, ...] = (
     ),
 )
 
+DOCKER_AGGREGATE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
+    UnraidSensorEntityDescription(
+        key="docker_running",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: sum(
+            1
+            for c in coordinator.data["docker_containers"].values()
+            if c.state == ContainerState.RUNNING
+        ),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="docker_exited",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: sum(
+            1
+            for c in coordinator.data["docker_containers"].values()
+            if c.state == ContainerState.EXITED
+        ),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidSensorEntityDescription(
+        key="docker_total",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coordinator: len(coordinator.data["docker_containers"]),
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
 VM_AGGREGATE_SENSOR_DESCRIPTIONS: tuple[UnraidSensorEntityDescription, ...] = (
     UnraidSensorEntityDescription(
         key="vms_running",
@@ -435,6 +473,12 @@ async def async_setup_entry(
         for description in SENSOR_DESCRIPTIONS
         if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
     ]
+    if config_entry.options.get(CONF_DOCKER_MODE, DOCKER_MODE_OFF) != DOCKER_MODE_OFF:
+        entities.extend(
+            UnraidSensor(description, config_entry)
+            for description in DOCKER_AGGREGATE_SENSOR_DESCRIPTIONS
+            if description.min_version <= config_entry.runtime_data.coordinator.api_client.version
+        )
     if config_entry.options.get(CONF_VMS):
         entities.extend(
             UnraidSensor(description, config_entry)
