@@ -539,9 +539,7 @@ async def test_docker_sensors_removed(
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
-async def test_docker_aggregate_sensors(
-    hass: HomeAssistant, mock_api_client: MagicMock
-) -> None:
+async def test_docker_aggregate_sensors(hass: HomeAssistant, mock_api_client: MagicMock) -> None:
     """Test Docker aggregate sensors on the root device."""
     assert mock_api_client
     assert await setup_config_entry(hass)
