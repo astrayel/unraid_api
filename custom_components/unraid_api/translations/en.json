@@ -166,6 +166,15 @@
                     "exited": "Exited"
                 }
             },
+            "docker_running": {
+                "name": "Docker containers running"
+            },
+            "docker_exited": {
+                "name": "Docker containers exited"
+            },
+            "docker_total": {
+                "name": "Docker containers total"
+            },
             "vm_state": {
                 "name": "State",
                 "state": {
