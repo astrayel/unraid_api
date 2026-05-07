@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import yarl
@@ -32,17 +32,19 @@ if TYPE_CHECKING:
 
 
 def _make_container_obj(container: _DockerContainer) -> DockerContainer:
-    label_unraid_webui = container.labels.get("net.unraid.docker.webui", "")
+    webui_raw = container.web_ui_url or container.labels.get("net.unraid.docker.webui", "")
     webui = None
-    if label_unraid_webui != "":
-        url = label_unraid_webui if "://" in label_unraid_webui else f"http://{label_unraid_webui}"
+    if webui_raw:
+        url = webui_raw if "://" in webui_raw else f"http://{webui_raw}"
         try:
             webui = yarl.URL(url)
         except (ValueError, TypeError):
-            _LOGGER.debug("Can't build webui url: %s", label_unraid_webui)
+            _LOGGER.debug("Can't build webui url: %s", webui_raw)
 
     label_name = container.labels.get("io.home-assistant.unraid_api.name")
     name = label_name or None
+
+    created_at = datetime.fromtimestamp(container.created, tz=UTC) if container.created else None
 
     return DockerContainer(
         id=container.id,
@@ -56,6 +58,12 @@ def _make_container_obj(container: _DockerContainer) -> DockerContainer:
         label_monitor=_to_bool(container.labels.get("io.home-assistant.unraid_api.monitor")),
         label_name=name,
         update_available=container.is_update_available,
+        orphaned=container.is_orphaned,
+        rebuild_ready=container.is_rebuild_ready,
+        auto_start=container.auto_start,
+        created_at=created_at,
+        size_rw=container.size_rw,
+        size_log=container.size_log,
     )
 
 
@@ -345,6 +353,13 @@ query DockerContainers {
       state
       status
       isUpdateAvailable
+      isOrphaned
+      isRebuildReady
+      autoStart
+      created
+      sizeRw
+      sizeLog
+      webUiUrl
     }
   }
 }
@@ -430,6 +445,13 @@ mutation DockerStart($startId: PrefixedID!) {
       imageId
       status
       isUpdateAvailable
+      isOrphaned
+      isRebuildReady
+      autoStart
+      created
+      sizeRw
+      sizeLog
+      webUiUrl
     }
   }
 }
@@ -447,6 +469,13 @@ mutation DockerStop($stopId: PrefixedID!) {
       imageId
       status
       isUpdateAvailable
+      isOrphaned
+      isRebuildReady
+      autoStart
+      created
+      sizeRw
+      sizeLog
+      webUiUrl
     }
   }
 }
@@ -619,6 +648,13 @@ class _DockerContainer(BaseModel):
     image_sha265: str = Field(alias="imageId")
     status: str
     is_update_available: bool | None = Field(default=None, alias="isUpdateAvailable")
+    is_orphaned: bool | None = Field(default=None, alias="isOrphaned")
+    is_rebuild_ready: bool | None = Field(default=None, alias="isRebuildReady")
+    auto_start: bool | None = Field(default=None, alias="autoStart")
+    created: int | None = None
+    size_rw: int | None = Field(default=None, alias="sizeRw")
+    size_log: int | None = Field(default=None, alias="sizeLog")
+    web_ui_url: str | None = Field(default=None, alias="webUiUrl")
 
 
 class DockerStart(BaseModel):  # noqa: D101

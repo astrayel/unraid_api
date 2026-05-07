@@ -59,6 +59,11 @@ async def test_docker_update_available(
     assert hass.states.get("binary_sensor.test_server_homeassistant_update_available") is None
     assert hass.states.get("binary_sensor.test_server_postgres_update_available") is None
 
+    assert hass.states.get("binary_sensor.test_server_grafana_public_orphaned").state == "off"
+    assert hass.states.get("binary_sensor.test_server_grafana_public_rebuild_ready").state == "off"
+    assert hass.states.get("binary_sensor.test_server_grafana_public_auto_start").state == "on"
+    assert hass.states.get("binary_sensor.test_server_homeassistant_orphaned") is None
+
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
 async def test_disk_sensors_disabled(

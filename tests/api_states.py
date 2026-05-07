@@ -162,6 +162,12 @@ class ApiState420(ApiState):
                 label_monitor=True,
                 label_name="Grafana Public",
                 update_available=True,
+                orphaned=False,
+                rebuild_ready=False,
+                auto_start=True,
+                created_at=datetime(2026, 5, 1, 8, 0, 0, tzinfo=UTC),
+                size_rw=12_582_912,
+                size_log=524_288,
             ),
         ]
         self.vms = [

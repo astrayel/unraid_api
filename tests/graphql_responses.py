@@ -290,6 +290,13 @@ class GraphqlResponses420(GraphqlResponses):
                             "imageId": "sha256:32241300d32d708c29a186e61692ff00d6c3f13cb862246326edd4612d735ae5",  # noqa: E501
                             "status": "Up 3 hours (healthy)",
                             "isUpdateAvailable": True,
+                            "isOrphaned": False,
+                            "isRebuildReady": False,
+                            "autoStart": True,
+                            "created": 1746086400,
+                            "sizeRw": 12582912,
+                            "sizeLog": 524288,
+                            "webUiUrl": "https://grafana.local",
                         },
                     ]
                 }

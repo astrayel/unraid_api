@@ -467,6 +467,15 @@ async def test_docker_sensors_opt_in(
     )
     assert hass.states.get("sensor.test_server_grafana_public_health").state == "healthy"
     assert hass.states.get("sensor.test_server_grafana_public_started_at") is not None
+    assert (
+        hass.states.get("sensor.test_server_grafana_public_created_at").state
+        == "2026-05-01T08:00:00+00:00"
+    )
+    assert (
+        hass.states.get("sensor.test_server_grafana_public_writable_layer_size").state
+        == "12.582912"
+    )
+    assert hass.states.get("sensor.test_server_grafana_public_log_size").state == "0.524288"
 
     # homeassistant has no opt-in label → only the base state sensor
     assert hass.states.get("sensor.test_server_homeassistant_state") is not None
