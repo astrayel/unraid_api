@@ -266,11 +266,18 @@ async def test_docker(
     )
     assert docker_containers[2].status == "Up 3 hours (healthy)"
     assert docker_containers[2].label_opencontainers_version is None
-    assert docker_containers[2].label_unraid_webui is None
+    assert docker_containers[2].label_unraid_webui == yarl.URL("https://grafana.local")
     assert docker_containers[2].label_monitor is True
     assert docker_containers[2].label_name == "Grafana Public"
     assert docker_containers[2].update_available is True
+    assert docker_containers[2].orphaned is False
+    assert docker_containers[2].rebuild_ready is False
+    assert docker_containers[2].auto_start is True
+    assert docker_containers[2].size_rw == 12582912
+    assert docker_containers[2].size_log == 524288
+    assert docker_containers[2].created_at is not None
     assert docker_containers[0].update_available is None
+    assert docker_containers[0].created_at is None
 
 
 @pytest.mark.parametrize("api_responses", API_RESPONSES)

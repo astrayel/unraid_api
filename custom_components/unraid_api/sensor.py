@@ -430,6 +430,34 @@ DOCKER_OPT_IN_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ..
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda container: container.started_at,
     ),
+    UnraidDockerSensorEntityDescription(
+        key="docker_created_at",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda container: container.created_at,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidDockerSensorEntityDescription(
+        key="docker_size_rw",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        suggested_display_precision=2,
+        value_fn=lambda container: container.size_rw,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    UnraidDockerSensorEntityDescription(
+        key="docker_size_log",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        suggested_display_precision=2,
+        value_fn=lambda container: container.size_log,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
 )
 
 VM_SENSOR_DESCRIPTIONS: tuple[UnraidVmSensorEntityDescription, ...] = (

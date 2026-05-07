@@ -163,6 +163,12 @@ class DockerContainer:
     label_monitor: bool | None
     label_name: str | None
     update_available: bool | None = None
+    orphaned: bool | None = None
+    rebuild_ready: bool | None = None
+    auto_start: bool | None = None
+    created_at: datetime | None = None
+    size_rw: int | None = None
+    size_log: int | None = None
     health: ContainerHealth = ContainerHealth.NONE
     started_at: datetime | None = None
 

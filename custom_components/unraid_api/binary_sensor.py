@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import callback
 
 from . import _LOGGER
@@ -55,6 +56,22 @@ DOCKER_OPT_IN_BINARY_SENSOR_DESCRIPTIONS: tuple[UnraidDockerBinarySensorEntityDe
         key="docker_update_available",
         device_class=BinarySensorDeviceClass.UPDATE,
         value_fn=lambda container: container.update_available,
+    ),
+    UnraidDockerBinarySensorEntityDescription(
+        key="docker_orphaned",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda container: container.orphaned,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    UnraidDockerBinarySensorEntityDescription(
+        key="docker_rebuild_ready",
+        device_class=BinarySensorDeviceClass.UPDATE,
+        value_fn=lambda container: container.rebuild_ready,
+    ),
+    UnraidDockerBinarySensorEntityDescription(
+        key="docker_auto_start",
+        value_fn=lambda container: container.auto_start,
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 

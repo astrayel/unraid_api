@@ -190,6 +190,15 @@
             "docker_uptime": {
                 "name": "Started at"
             },
+            "docker_created_at": {
+                "name": "Created at"
+            },
+            "docker_size_rw": {
+                "name": "Writable layer size"
+            },
+            "docker_size_log": {
+                "name": "Log size"
+            },
             "docker_running": {
                 "name": "Docker containers running"
             },
@@ -226,6 +235,15 @@
             },
             "docker_update_available": {
                 "name": "Update available"
+            },
+            "docker_orphaned": {
+                "name": "Orphaned"
+            },
+            "docker_rebuild_ready": {
+                "name": "Rebuild ready"
+            },
+            "docker_auto_start": {
+                "name": "Auto start"
             }
         },
         "button": {
