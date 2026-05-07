@@ -34,7 +34,15 @@ from .exceptions import (
     UnraidApiInvalidResponseError,
 )
 from .helpers import parse_container_health, parse_container_uptime
-from .models import CpuMetricsSubscription, DockerContainer, MemorySubscription, MetricsArray
+from .models import (
+    CpuMetricsSubscription,
+    DockerContainer,
+    DockerContainerHeavy,
+    MemorySubscription,
+    MetricsArray,
+)
+
+DOCKER_HEAVY_INTERVAL = timedelta(minutes=15)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -96,6 +104,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         self.ups_callbacks: set[Callable[[UpsDevice], None]] = set()
         self.docker_callbacks: set[Callable[[str], None]] = set()
         self.vm_callbacks: set[Callable[[str], None]] = set()
+        self._docker_heavy_last: datetime | None = None
+        self._docker_heavy_cache: dict[str, DockerContainerHeavy] = {}
 
     async def _async_setup(self) -> None:
         self.known_disks: set[str] = set()
@@ -270,11 +280,13 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
 
         self.data["ups_devices"] = devices
 
-    async def _update_docker(self) -> None:
+    async def _update_docker(self) -> None:  # noqa: PLR0912
         containers: dict[str, DockerContainer] = {}
         query_response = await self.api_client.query_docker()
         previous = self.data.get("docker_containers") or {}
         now = datetime.now(UTC)
+
+        await self._refresh_docker_heavy(now)
 
         for container in query_response:
             if (
@@ -301,6 +313,12 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                 container.started_at = previous_container.started_at
             else:
                 container.started_at = parse_container_uptime(container.status, now)
+
+            heavy = self._docker_heavy_cache.get(container.id)
+            if heavy is not None:
+                container.update_available = heavy.update_available
+                container.size_rw = heavy.size_rw
+                container.size_log = heavy.size_log
             containers[container_name] = container
 
         self.data["docker_containers"] = containers
@@ -342,6 +360,21 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                     device_id=device.id,
                     remove_config_entry_id=self.config_entry.entry_id,
                 )
+
+    async def _refresh_docker_heavy(self, now: datetime) -> None:
+        if (
+            self._docker_heavy_last is not None
+            and now - self._docker_heavy_last < DOCKER_HEAVY_INTERVAL
+        ):
+            return
+        start = time.perf_counter()
+        try:
+            self._docker_heavy_cache = await self.api_client.query_docker_heavy()
+        except UnraidApiError as exc:
+            _LOGGER.debug("Docker heavy query failed: %s", exc)
+            return
+        self._docker_heavy_last = now
+        _LOGGER.debug("Update: docker_heavy elapsed %.1f ms", (time.perf_counter() - start) * 1000)
 
     async def _update_vms(self) -> None:
         vms: dict[str, VirtualMachine] = {}

@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         CpuMetricsSubscription,
         Disk,
         DockerContainer,
+        DockerContainerHeavy,
         MemorySubscription,
         MetricsArray,
         ServerInfo,
@@ -310,6 +311,10 @@ class UnraidApiClient(UnraidApiClientBase):
 
     @abstractmethod
     async def query_docker(self) -> list[DockerContainer]:
+        pass
+
+    @abstractmethod
+    async def query_docker_heavy(self) -> dict[str, DockerContainerHeavy]:
         pass
 
     @abstractmethod
