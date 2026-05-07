@@ -47,7 +47,7 @@ async def test_docker_update_available(
     hass: HomeAssistant,
     mock_api_client: MagicMock,
 ) -> None:
-    """update_available binary_sensor exists only on opt-in containers."""
+    """update_available binary_sensor exists for every monitored container."""
     api_client: MockApiClient = mock_api_client.return_value
     api_client.state = api_state()
     assert await setup_config_entry(hass)
@@ -56,13 +56,13 @@ async def test_docker_update_available(
     assert state is not None
     assert state.state == "on"
 
-    assert hass.states.get("binary_sensor.test_server_homeassistant_update_available") is None
-    assert hass.states.get("binary_sensor.test_server_postgres_update_available") is None
+    assert hass.states.get("binary_sensor.test_server_homeassistant_update_available") is not None
+    assert hass.states.get("binary_sensor.test_server_postgres_update_available") is not None
 
     assert hass.states.get("binary_sensor.test_server_grafana_public_orphaned").state == "off"
     assert hass.states.get("binary_sensor.test_server_grafana_public_rebuild_ready").state == "off"
     assert hass.states.get("binary_sensor.test_server_grafana_public_auto_start").state == "on"
-    assert hass.states.get("binary_sensor.test_server_homeassistant_orphaned") is None
+    assert hass.states.get("binary_sensor.test_server_homeassistant_orphaned") is not None
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")

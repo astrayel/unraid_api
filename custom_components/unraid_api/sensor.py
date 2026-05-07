@@ -401,7 +401,6 @@ DOCKER_OPT_IN_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ..
         key="docker_image",
         value_fn=lambda container: container.image,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     ),
     UnraidDockerSensorEntityDescription(
         key="docker_image_version",
@@ -412,7 +411,6 @@ DOCKER_OPT_IN_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ..
         key="docker_image_digest",
         value_fn=lambda container: container.image_sha256 or None,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     ),
     UnraidDockerSensorEntityDescription(
         key="docker_status",
@@ -445,7 +443,6 @@ DOCKER_OPT_IN_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ..
         suggested_display_precision=2,
         value_fn=lambda container: container.size_rw,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     ),
     UnraidDockerSensorEntityDescription(
         key="docker_size_log",
@@ -456,7 +453,6 @@ DOCKER_OPT_IN_SENSOR_DESCRIPTIONS: tuple[UnraidDockerSensorEntityDescription, ..
         suggested_display_precision=2,
         value_fn=lambda container: container.size_log,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     ),
 )
 
@@ -603,15 +599,11 @@ async def async_setup_entry(
             for description in DOCKER_SENSOR_DESCRIPTIONS
             if description.min_version <= api_version
         ]
-        container = config_entry.runtime_data.coordinator.data["docker_containers"].get(
-            container_name
+        entities.extend(
+            UnraidDockerSensor(description, config_entry, container_name)
+            for description in DOCKER_OPT_IN_SENSOR_DESCRIPTIONS
+            if description.min_version <= api_version
         )
-        if container is not None and container.label_monitor:
-            entities.extend(
-                UnraidDockerSensor(description, config_entry, container_name)
-                for description in DOCKER_OPT_IN_SENSOR_DESCRIPTIONS
-                if description.min_version <= api_version
-            )
         config_entry.runtime_data.containers[container_name]["entities"].extend(entities)
         async_add_entites(entities)
 
