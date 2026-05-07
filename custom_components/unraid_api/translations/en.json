@@ -166,6 +166,30 @@
                     "exited": "Exited"
                 }
             },
+            "docker_image": {
+                "name": "Image"
+            },
+            "docker_image_version": {
+                "name": "Image version"
+            },
+            "docker_image_digest": {
+                "name": "Image digest"
+            },
+            "docker_status": {
+                "name": "Status"
+            },
+            "docker_health": {
+                "name": "Health",
+                "state": {
+                    "healthy": "Healthy",
+                    "unhealthy": "Unhealthy",
+                    "starting": "Starting",
+                    "none": "None"
+                }
+            },
+            "docker_uptime": {
+                "name": "Started at"
+            },
             "docker_running": {
                 "name": "Docker containers running"
             },
