@@ -95,10 +95,10 @@ async def async_setup_entry(
 
     @callback
     def add_container_callback(container_name: str) -> None:
-        container = config_entry.runtime_data.coordinator.data["docker_containers"].get(
-            container_name
-        )
-        if container is None or not container.label_monitor:
+        if (
+            config_entry.runtime_data.coordinator.data["docker_containers"].get(container_name)
+            is None
+        ):
             return
         _LOGGER.debug("Binary Sensor: Adding new Docker container: %s", container_name)
         api_version = config_entry.runtime_data.coordinator.api_client.version

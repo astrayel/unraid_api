@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -134,19 +135,20 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
     async def _async_update_data(self) -> UnraidServerData:
         if self._websocket_error_logged and not self.api_client.websocket_connected:
             await self._connect_websocket()
+        update_start = time.perf_counter()
         try:
             async with asyncio.TaskGroup() as tg:
-                tg.create_task(self._update_metrics())
+                tg.create_task(self._timed("metrics", self._update_metrics))
                 if self.config_entry.options[CONF_DRIVES]:
-                    tg.create_task(self._update_disks())
+                    tg.create_task(self._timed("disks", self._update_disks))
                 if self.config_entry.options[CONF_SHARES]:
-                    tg.create_task(self._update_shares())
+                    tg.create_task(self._timed("shares", self._update_shares))
                 if self.api_client.version >= AwesomeVersion("4.26.0"):
-                    tg.create_task(self._update_ups())
+                    tg.create_task(self._timed("ups", self._update_ups))
                 if self.config_entry.options[CONF_DOCKER_MODE] not in DOCKER_MODE_OFF:
-                    tg.create_task(self._update_docker())
+                    tg.create_task(self._timed("docker", self._update_docker))
                 if self.config_entry.options.get(CONF_VMS):
-                    tg.create_task(self._update_vms())
+                    tg.create_task(self._timed("vms", self._update_vms))
 
         except* ClientConnectorSSLError as exc:
             _LOGGER.debug("Update: SSL error: %s", str(exc))
@@ -200,7 +202,19 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                 },
             ) from exc
 
+        _LOGGER.debug(
+            "Update: total elapsed %.1f ms", (time.perf_counter() - update_start) * 1000
+        )
         return self.data
+
+    async def _timed(self, label: str, coro_func: Callable[[], Any]) -> None:
+        start = time.perf_counter()
+        try:
+            await coro_func()
+        finally:
+            _LOGGER.debug(
+                "Update: %s elapsed %.1f ms", label, (time.perf_counter() - start) * 1000
+            )
 
     async def _update_metrics(self) -> None:
         data = await self.api_client.query_metrics_array()

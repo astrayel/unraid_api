@@ -449,43 +449,16 @@ async def test_docker_sensors_opt_in(
     hass: HomeAssistant,
     mock_api_client: MagicMock,
 ) -> None:
-    """Opt-in containers expose extended sensors; non-opt-in don't."""
+    """All containers expose extended sensors regardless of label."""
     api_client: MockApiClient = mock_api_client.return_value
     api_client.state = api_state()
     assert await setup_config_entry(hass)
 
-    # grafana is opt-in (label_monitor=True) → extended sensors created
-    assert hass.states.get("sensor.test_server_grafana_public_image").state == (
-        "grafana/grafana-enterprise"
-    )
-    assert hass.states.get("sensor.test_server_grafana_public_image_version").state == "11.0.0"
-    assert hass.states.get("sensor.test_server_grafana_public_image_digest").state == (
-        "32241300d32d708c29a186e61692ff00d6c3f13cb862246326edd4612d735ae5"
-    )
-    assert (
-        hass.states.get("sensor.test_server_grafana_public_status").state == "Up 3 hours (healthy)"
-    )
-    assert hass.states.get("sensor.test_server_grafana_public_health").state == "healthy"
-    assert hass.states.get("sensor.test_server_grafana_public_started_at") is not None
-    assert (
-        hass.states.get("sensor.test_server_grafana_public_created_at").state
-        == "2026-05-01T08:00:00+00:00"
-    )
-    assert (
-        hass.states.get("sensor.test_server_grafana_public_writable_layer_size").state
-        == "12.582912"
-    )
-    assert hass.states.get("sensor.test_server_grafana_public_log_size").state == "0.524288"
-
-    # homeassistant has no opt-in label → only the base state sensor
-    assert hass.states.get("sensor.test_server_homeassistant_state") is not None
-    assert hass.states.get("sensor.test_server_homeassistant_image") is None
-    assert hass.states.get("sensor.test_server_homeassistant_health") is None
-    assert hass.states.get("sensor.test_server_homeassistant_started_at") is None
-
-    # postgres is explicitly opted-out (label_monitor=False) → only base sensor
-    assert hass.states.get("sensor.test_server_postgres_state") is not None
-    assert hass.states.get("sensor.test_server_postgres_health") is None
+    for container in ("grafana_public", "homeassistant", "postgres"):
+        assert hass.states.get(f"sensor.test_server_{container}_state") is not None
+        assert hass.states.get(f"sensor.test_server_{container}_image") is not None
+        assert hass.states.get(f"sensor.test_server_{container}_status") is not None
+        assert hass.states.get(f"sensor.test_server_{container}_health") is not None
 
 
 @pytest.mark.usefixtures("entity_registry_enabled_by_default")
