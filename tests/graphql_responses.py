@@ -288,7 +288,8 @@ class GraphqlResponses420(GraphqlResponses):
                             },
                             "image": "grafana/grafana-enterprise",
                             "imageId": "sha256:32241300d32d708c29a186e61692ff00d6c3f13cb862246326edd4612d735ae5",  # noqa: E501
-                            "status": "Up 28 minutes",
+                            "status": "Up 3 hours (healthy)",
+                            "isUpdateAvailable": True,
                         },
                     ]
                 }

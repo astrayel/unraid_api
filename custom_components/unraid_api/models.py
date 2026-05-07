@@ -54,6 +54,13 @@ class ContainerState(StrEnum):  # noqa: D101
     EXITED = "EXITED"
 
 
+class ContainerHealth(StrEnum):  # noqa: D101
+    HEALTHY = "healthy"
+    UNHEALTHY = "unhealthy"
+    STARTING = "starting"
+    NONE = "none"
+
+
 class VmState(StrEnum):  # noqa: D101
     RUNNING = "RUNNING"
     STOPPED = "STOPPED"
@@ -155,6 +162,9 @@ class DockerContainer:
     label_unraid_webui: str | None
     label_monitor: bool | None
     label_name: str | None
+    update_available: bool | None = None
+    health: ContainerHealth = ContainerHealth.NONE
+    started_at: datetime | None = None
 
 
 @dataclass

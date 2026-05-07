@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from aiohttp import ClientConnectionError, ClientConnectorSSLError
@@ -32,6 +32,7 @@ from .exceptions import (
     UnraidApiError,
     UnraidApiInvalidResponseError,
 )
+from .helpers import parse_container_health, parse_container_uptime
 from .models import CpuMetricsSubscription, DockerContainer, MemorySubscription, MetricsArray
 
 if TYPE_CHECKING:
@@ -262,6 +263,8 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
     async def _update_docker(self) -> None:
         containers: dict[str, DockerContainer] = {}
         query_response = await self.api_client.query_docker()
+        previous = self.data.get("docker_containers") or {}
+        now = datetime.now(UTC)
 
         for container in query_response:
             if (
@@ -280,6 +283,14 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                 _LOGGER.warning("Duplicate container name %s", container_name)
                 containers.pop(container_name)
                 continue
+
+            container.health = parse_container_health(container.status)
+            previous_container = previous.get(container_name)
+            if previous_container and previous_container.status == container.status:
+                # Reuse the cached timestamp so HA doesn't see it drift every poll.
+                container.started_at = previous_container.started_at
+            else:
+                container.started_at = parse_container_uptime(container.status, now)
             containers[container_name] = container
 
         self.data["docker_containers"] = containers

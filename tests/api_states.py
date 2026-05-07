@@ -156,11 +156,12 @@ class ApiState420(ApiState):
                 state=ContainerState.EXITED,
                 image="grafana/grafana-enterprise",
                 image_sha256="32241300d32d708c29a186e61692ff00d6c3f13cb862246326edd4612d735ae5",
-                status="Up 28 minutes",
-                label_opencontainers_version=None,
+                status="Up 3 hours (healthy)",
+                label_opencontainers_version="11.0.0",
                 label_unraid_webui=None,
                 label_monitor=True,
                 label_name="Grafana Public",
+                update_available=True,
             ),
         ]
         self.vms = [
