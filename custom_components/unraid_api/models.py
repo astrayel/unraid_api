@@ -149,6 +149,15 @@ class UpsDevice:
 
 
 @dataclass
+class DockerContainerHeavy:
+    """Docker fields that are expensive to query."""
+
+    update_available: bool | None = None
+    size_rw: int | None = None
+    size_log: int | None = None
+
+
+@dataclass
 class DockerContainer:
     """Docker Container."""
 

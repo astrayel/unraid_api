@@ -11,6 +11,7 @@ import pytest_asyncio
 from aiohttp import ClientSession, web
 from aiohttp.test_utils import TestClient, TestServer
 from custom_components.unraid_api.api import GRAPHQL_WS_PROTOCOL, GraphQLWebsocketMessageType
+from custom_components.unraid_api.models import DockerContainerHeavy as _DockerContainerHeavy
 
 from .api_states import API_STATE_LATEST, ApiState
 
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
         CpuMetricsSubscription,
         Disk,
         DockerContainer,
+        DockerContainerHeavy,
         MemorySubscription,
         MetricsArray,
         ServerInfo,
@@ -240,6 +242,16 @@ class MockApiClient:
 
     async def query_docker(self) -> list[DockerContainer]:
         return self.state.docker
+
+    async def query_docker_heavy(self) -> dict[str, DockerContainerHeavy]:
+        return {
+            c.id: _DockerContainerHeavy(
+                update_available=c.update_available,
+                size_rw=c.size_rw,
+                size_log=c.size_log,
+            )
+            for c in self.state.docker
+        }
 
     async def query_vms(self) -> list[VirtualMachine]:
         return self.state.vms

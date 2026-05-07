@@ -16,6 +16,7 @@ from custom_components.unraid_api.models import (
     DiskStatus,
     DiskType,
     DockerContainer,
+    DockerContainerHeavy,
     MemorySubscription,
     MetricsArray,
     ParityCheckStatus,
@@ -171,6 +172,17 @@ class UnraidApiV420(UnraidApiClient):
     async def query_docker(self) -> list[DockerContainer]:
         response = await self.call_api(DOCKER_QUERY, DockerQuery)
         return [_make_container_obj(container) for container in response.docker.containers]
+
+    async def query_docker_heavy(self) -> dict[str, DockerContainerHeavy]:
+        response = await self.call_api(DOCKER_HEAVY_QUERY, DockerHeavyQuery)
+        return {
+            c.id: DockerContainerHeavy(
+                update_available=c.is_update_available,
+                size_rw=c.size_rw,
+                size_log=c.size_log,
+            )
+            for c in response.docker.containers
+        }
 
     async def subscribe_cpu_usage(self, callback: Callable[[float], None]) -> None:
         def _callback(data: Any) -> None:
@@ -352,14 +364,24 @@ query DockerContainers {
       imageId
       state
       status
-      isUpdateAvailable
       isOrphaned
       isRebuildReady
       autoStart
       created
+      webUiUrl
+    }
+  }
+}
+"""
+
+DOCKER_HEAVY_QUERY = """
+query DockerContainersHeavy {
+  docker {
+    containers {
+      id
+      isUpdateAvailable
       sizeRw
       sizeLog
-      webUiUrl
     }
   }
 }
@@ -655,6 +677,21 @@ class _DockerContainer(BaseModel):
     size_rw: int | None = Field(default=None, alias="sizeRw")
     size_log: int | None = Field(default=None, alias="sizeLog")
     web_ui_url: str | None = Field(default=None, alias="webUiUrl")
+
+
+class DockerHeavyQuery(BaseModel):  # noqa: D101
+    docker: DockerHeavy
+
+
+class DockerHeavy(BaseModel):  # noqa: D101
+    containers: list[_DockerHeavyContainer]
+
+
+class _DockerHeavyContainer(BaseModel):
+    id: str
+    is_update_available: bool | None = Field(default=None, alias="isUpdateAvailable")
+    size_rw: int | None = Field(default=None, alias="sizeRw")
+    size_log: int | None = Field(default=None, alias="sizeLog")
 
 
 class DockerStart(BaseModel):  # noqa: D101
