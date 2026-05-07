@@ -202,9 +202,7 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
                 },
             ) from exc
 
-        _LOGGER.debug(
-            "Update: total elapsed %.1f ms", (time.perf_counter() - update_start) * 1000
-        )
+        _LOGGER.debug("Update: total elapsed %.1f ms", (time.perf_counter() - update_start) * 1000)
         return self.data
 
     async def _timed(self, label: str, coro_func: Callable[[], Any]) -> None:
@@ -212,9 +210,7 @@ class UnraidDataUpdateCoordinator(DataUpdateCoordinator[UnraidServerData]):
         try:
             await coro_func()
         finally:
-            _LOGGER.debug(
-                "Update: %s elapsed %.1f ms", label, (time.perf_counter() - start) * 1000
-            )
+            _LOGGER.debug("Update: %s elapsed %.1f ms", label, (time.perf_counter() - start) * 1000)
 
     async def _update_metrics(self) -> None:
         data = await self.api_client.query_metrics_array()
