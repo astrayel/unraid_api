@@ -162,6 +162,7 @@ class DockerContainer:
     label_unraid_webui: str | None
     label_monitor: bool | None
     label_name: str | None
+    update_available: bool | None = None
     health: ContainerHealth = ContainerHealth.NONE
     started_at: datetime | None = None
 

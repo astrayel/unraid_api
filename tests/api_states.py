@@ -161,6 +161,7 @@ class ApiState420(ApiState):
                 label_unraid_webui=None,
                 label_monitor=True,
                 label_name="Grafana Public",
+                update_available=True,
             ),
         ]
         self.vms = [

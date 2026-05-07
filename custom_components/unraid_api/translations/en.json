@@ -223,6 +223,9 @@
         "binary_sensor": {
             "disk_spinning": {
                 "name": "{disk_name} spinning"
+            },
+            "docker_update_available": {
+                "name": "Update available"
             }
         },
         "button": {

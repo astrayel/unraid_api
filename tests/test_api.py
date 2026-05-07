@@ -264,11 +264,13 @@ async def test_docker(
         docker_containers[2].image_sha256
         == "32241300d32d708c29a186e61692ff00d6c3f13cb862246326edd4612d735ae5"
     )
-    assert docker_containers[2].status == "Up 28 minutes"
+    assert docker_containers[2].status == "Up 3 hours (healthy)"
     assert docker_containers[2].label_opencontainers_version is None
     assert docker_containers[2].label_unraid_webui is None
     assert docker_containers[2].label_monitor is True
     assert docker_containers[2].label_name == "Grafana Public"
+    assert docker_containers[2].update_available is True
+    assert docker_containers[0].update_available is None
 
 
 @pytest.mark.parametrize("api_responses", API_RESPONSES)

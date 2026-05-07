@@ -55,6 +55,7 @@ def _make_container_obj(container: _DockerContainer) -> DockerContainer:
         label_unraid_webui=webui,
         label_monitor=_to_bool(container.labels.get("io.home-assistant.unraid_api.monitor")),
         label_name=name,
+        update_available=container.is_update_available,
     )
 
 
@@ -343,6 +344,7 @@ query DockerContainers {
       imageId
       state
       status
+      isUpdateAvailable
     }
   }
 }
@@ -427,6 +429,7 @@ mutation DockerStart($startId: PrefixedID!) {
       image
       imageId
       status
+      isUpdateAvailable
     }
   }
 }
@@ -443,6 +446,7 @@ mutation DockerStop($stopId: PrefixedID!) {
       image
       imageId
       status
+      isUpdateAvailable
     }
   }
 }
@@ -614,6 +618,7 @@ class _DockerContainer(BaseModel):
     image: str
     image_sha265: str = Field(alias="imageId")
     status: str
+    is_update_available: bool | None = Field(default=None, alias="isUpdateAvailable")
 
 
 class DockerStart(BaseModel):  # noqa: D101
