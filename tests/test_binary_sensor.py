@@ -56,9 +56,7 @@ async def test_docker_update_available(
     assert state is not None
     assert state.state == "on"
 
-    assert (
-        hass.states.get("binary_sensor.test_server_homeassistant_update_available") is not None
-    )
+    assert hass.states.get("binary_sensor.test_server_homeassistant_update_available") is not None
     assert hass.states.get("binary_sensor.test_server_postgres_update_available") is not None
 
     assert hass.states.get("binary_sensor.test_server_grafana_public_orphaned").state == "off"
